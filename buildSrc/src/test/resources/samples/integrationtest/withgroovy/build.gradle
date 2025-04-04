@@ -6,7 +6,9 @@ apply plugin: 'java'
 apply plugin: 'groovy'
 
 repositories {
-	mavenCentral()
+	mavenLocal()
+	maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+	maven { url 'https://maven.aliyun.com/repository/public/' }
 }
 
 dependencies {
