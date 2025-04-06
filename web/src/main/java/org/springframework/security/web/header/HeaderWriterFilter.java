@@ -42,7 +42,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * @author Ankur Pathak
  * @since 3.2
  */
-public class HeaderWriterFilter extends OncePerRequestFilter {
+public class HeaderWriterFilter extends OncePerRequestFilter { // 在响应中添加响应头。通过 shouldWriteHeadersEagerly 控制在请求处理前进行还是处理结束后进行
 
 	/**
 	 * The {@link HeaderWriter} to write headers to the response.
