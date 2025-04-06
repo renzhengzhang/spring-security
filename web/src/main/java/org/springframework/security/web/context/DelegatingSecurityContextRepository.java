@@ -27,6 +27,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.util.Assert;
 
 /**
+ * 一系列 {@link SecurityContextRepository} 的委托实现
  * @author Steve Riesenberg
  * @author Josh Cummings
  * @since 5.8
@@ -47,6 +48,8 @@ public final class DelegatingSecurityContextRepository implements SecurityContex
 	@Override
 	public SecurityContext loadContext(HttpRequestResponseHolder requestResponseHolder) {
 		SecurityContext result = null;
+		// 遍历所有委托，如果当前委托包含 SecurityContext，则返回当前委托的结果，否则返回前一个委托的结果
+		// 先从 RequestAttributeSecurityContextRepository，然后从 HttpSessionSecurityContextRepository 获取，返回最后获取到的一个 SecurityContext
 		for (SecurityContextRepository delegate : this.delegates) {
 			SecurityContext delegateResult = delegate.loadContext(requestResponseHolder);
 			if (result == null || delegate.containsContext(requestResponseHolder.getRequest())) {
@@ -60,6 +63,8 @@ public final class DelegatingSecurityContextRepository implements SecurityContex
 	public DeferredSecurityContext loadDeferredContext(HttpServletRequest request) {
 		DeferredSecurityContext deferredSecurityContext = null;
 		for (SecurityContextRepository delegate : this.delegates) {
+			// 优先从最后一个 delegate 获取 DeferredSecurityContext，默认最后一个 delegate 是 HttpSessionSecurityContextRepository
+			// 优先返回非生成的 SecurityContext
 			if (deferredSecurityContext == null) {
 				deferredSecurityContext = delegate.loadDeferredContext(request);
 			}
@@ -99,6 +104,7 @@ public final class DelegatingSecurityContextRepository implements SecurityContex
 			this.next = next;
 		}
 
+		// 如果上一个 DeferredSecurityContext 是生成的，则返回下一个 DeferredSecurityContext
 		@Override
 		public SecurityContext get() {
 			SecurityContext securityContext = this.previous.get();

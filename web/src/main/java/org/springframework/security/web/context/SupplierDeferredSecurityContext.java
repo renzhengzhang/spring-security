@@ -27,6 +27,8 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolderStrategy;
 
 /**
+ * 调用 get() 的时候，才去调用 {@code Supplier<SecurityContext> } 获取 SecurityContext，如果没有获取到，
+ * 就会通过 {@link SecurityContextHolderStrategy} 创建一个空的 {@link SecurityContext}
  * @author Steve Riesenberg
  * @since 5.8
  */
@@ -53,6 +55,9 @@ final class SupplierDeferredSecurityContext implements DeferredSecurityContext {
 		return this.securityContext;
 	}
 
+	/**
+	 * 初始化会通过 {@code Supplier<SecurityContext> } 获取 SecurityContext，如果没有获取到，就会创建一个空的 SecurityContext，此方法返回 true
+	 */
 	@Override
 	public boolean isGenerated() {
 		init();

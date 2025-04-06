@@ -41,7 +41,7 @@ import org.springframework.util.Assert;
  * @author Rob Winch
  * @since 5.7
  */
-public final class RequestAttributeSecurityContextRepository implements SecurityContextRepository {
+public final class RequestAttributeSecurityContextRepository implements SecurityContextRepository { // 将 SecurityContext 保存在 request 的 attribute 中
 
 	/**
 	 * The default request attribute name to use.

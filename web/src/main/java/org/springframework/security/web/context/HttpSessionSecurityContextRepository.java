@@ -120,14 +120,19 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 	public SecurityContext loadContext(HttpRequestResponseHolder requestResponseHolder) {
 		HttpServletRequest request = requestResponseHolder.getRequest();
 		HttpServletResponse response = requestResponseHolder.getResponse();
+		// 从 request 中尝试获取 session，如果不存在也不会创建
 		HttpSession httpSession = request.getSession(false);
+		// 尝试从 session 中获取 SecurityContext，如果没有获取到，也不会创建一个新的
 		SecurityContext context = readSecurityContextFromSession(httpSession);
+		// 如果没有获取到 SecurityContext，则创建一个 empty SecurityContext
 		if (context == null) {
 			context = generateNewContext();
 			if (this.logger.isTraceEnabled()) {
 				this.logger.trace(LogMessage.format("Created %s", context));
 			}
 		}
+
+		// 从 Session 中加载 SecurityContext 时，替换掉 HttpRequestResponseHolder 中的 request 和 response
 		if (response != null) {
 			SaveToSessionResponseWrapper wrappedResponse = new SaveToSessionResponseWrapper(response, request,
 					httpSession != null, context);
@@ -159,12 +164,14 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 		if (isTransient(context) || isTransient(context.getAuthentication())) {
 			return;
 		}
+		// 如果 SecurityContext 是 empty SecurityContext，则从 session 中移除
 		SecurityContext emptyContext = generateNewContext();
 		if (emptyContext.equals(context)) {
 			HttpSession session = request.getSession(false);
 			removeContextFromSession(context, session);
 		}
 		else {
+			// 如果允许创建 Session，则将 SecurityContext 存储到 session 中
 			boolean createSession = this.allowSessionCreation;
 			HttpSession session = request.getSession(createSession);
 			setContextInSession(context, session);
@@ -199,6 +206,8 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 	}
 
 	/**
+	 * 尝试从 session 中获取 SecurityContext，如果没有获取到，则返回 null
+	 *
 	 * @param httpSession the session obtained from the request.
 	 */
 	private SecurityContext readSecurityContextFromSession(HttpSession httpSession) {
@@ -206,6 +215,8 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 			this.logger.trace("No HttpSession currently exists");
 			return null;
 		}
+
+		// Session 存在的话，尝试从 session 中获取 SecurityContext，如果没有获取到，则返回 null
 		// Session exists, so try to obtain a context from it.
 		Object contextFromSession = httpSession.getAttribute(this.springSecurityContextKey);
 		if (contextFromSession == null) {
@@ -216,6 +227,7 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 			return null;
 		}
 
+		// 判断contextFromSession 是否是 SecurityContext 的实例，如果不是，则返回 null
 		// We now have the security context object from the session.
 		if (!(contextFromSession instanceof SecurityContext)) {
 			this.logger.warn(LogMessage.format(
@@ -233,6 +245,7 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 		else if (this.logger.isDebugEnabled()) {
 			this.logger.debug(LogMessage.format("Retrieved %s", contextFromSession));
 		}
+
 		// Everything OK. The only non-null return from this method.
 		return (SecurityContext) contextFromSession;
 	}
@@ -311,6 +324,7 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 		this.trustResolver = trustResolver;
 	}
 
+	// TODO 为什么需要在 startAsync() 时 disableSaveOnResponseCommitted ？
 	private static class SaveToSessionRequestWrapper extends HttpServletRequestWrapper {
 
 		private final SaveContextOnUpdateOrErrorResponseWrapper response;
@@ -390,6 +404,7 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 		 */
 		@Override
 		protected void saveContext(SecurityContext context) {
+			// 只有当 SecurityContext 和其中的 Authentication 不被 @Transient 注解修饰时，才进行保存
 			if (isTransient(context)) {
 				return;
 			}
@@ -397,9 +412,14 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 			if (isTransient(authentication)) {
 				return;
 			}
+
+
 			HttpSession httpSession = this.request.getSession(false);
 			String springSecurityContextKey = HttpSessionSecurityContextRepository.this.springSecurityContextKey;
+
 			// See SEC-776
+			// 如果当前保存的 Authentication 是匿名的，并且创建 SaveToSessionResponseWrapper 时的 authBeforeExecution(即 Authentication) 不为空
+			// 则从 Session 中移除 SecurityContext，将 isSaveContextInvoked 标记为 true
 			if (authentication == null
 					|| HttpSessionSecurityContextRepository.this.trustResolver.isAnonymous(authentication)) {
 				if (httpSession != null && this.authBeforeExecution != null) {
@@ -431,17 +451,26 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 			}
 		}
 
+		/**
+		 * 以下情况说明 SecurityContext 发生变化
+		 * 1. Authentication 一开始存在，现在存在时或者现在变为匿名 Authentication 时
+		 * 2. SecurityContext 不一致了
+		 * 3. SecurityContext 中的 Authentication 不一致了
+		 */
 		private boolean contextChanged(SecurityContext context) {
 			return this.isSaveContextInvoked || context != this.contextBeforeExecution
 					|| context.getAuthentication() != this.authBeforeExecution;
 		}
 
 		private HttpSession createNewSessionIfAllowed(SecurityContext context) {
+			// Session 在请求开始时存在，现在不存在，说明被 invalidated 了，所以不创建新会话
 			if (this.httpSessionExistedAtStartOfRequest) {
 				this.logger.debug("HttpSession is now null, but was not null at start of request; "
 						+ "session was invalidated, so do not create a new session");
 				return null;
 			}
+
+			// 如果不被允许创建 session，也不创建
 			if (!HttpSessionSecurityContextRepository.this.allowSessionCreation) {
 				this.logger.debug("The HttpSession is currently null, and the "
 						+ HttpSessionSecurityContextRepository.class.getSimpleName()
@@ -450,6 +479,8 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 						+ "stored for next request");
 				return null;
 			}
+
+			// HttpSession 不存在，并且 SecurityContext 也没有改变还是 empty SecurityContext，则不创建
 			// Generate a HttpSession only if we need to
 			if (HttpSessionSecurityContextRepository.this.contextObject.equals(context)) {
 				this.logger.debug(LogMessage.format(
@@ -458,6 +489,8 @@ public class HttpSessionSecurityContextRepository implements SecurityContextRepo
 						context));
 				return null;
 			}
+
+			// 尝试创建 HttpSession
 			try {
 				HttpSession session = this.request.getSession(true);
 				this.logger.debug("Created HttpSession as SecurityContext is non-default");

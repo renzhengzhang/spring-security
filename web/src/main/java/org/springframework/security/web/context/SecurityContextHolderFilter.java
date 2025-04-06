@@ -45,7 +45,7 @@ import org.springframework.web.filter.GenericFilterBean;
  * @author Marcus da Coregio
  * @since 5.7
  */
-public class SecurityContextHolderFilter extends GenericFilterBean {
+public class SecurityContextHolderFilter extends GenericFilterBean { // 在执行后续请求前，从 SecurityContextRepository 中获取 SecurityContext，并将其保存到 SecurityContextHolder 中，并在请求结束后清除 SecurityContextHolder 中的 SecurityContext。
 
 	private static final String FILTER_APPLIED = SecurityContextHolderFilter.class.getName() + ".APPLIED";
 
@@ -76,12 +76,16 @@ public class SecurityContextHolderFilter extends GenericFilterBean {
 			return;
 		}
 		request.setAttribute(FILTER_APPLIED, Boolean.TRUE);
+
+		// 从 SecurityContextRepository 中获取 SecurityContext
 		Supplier<SecurityContext> deferredContext = this.securityContextRepository.loadDeferredContext(request);
 		try {
+			// 将SecurityContextRepository 中获取到的 SecurityContext 保存到 SecurityContextHolder 中
 			this.securityContextHolderStrategy.setDeferredContext(deferredContext);
 			chain.doFilter(request, response);
 		}
 		finally {
+			// 请求结束将 SecurityContextHolder 中的 SecurityContext 清除
 			this.securityContextHolderStrategy.clearContext();
 			request.removeAttribute(FILTER_APPLIED);
 		}
