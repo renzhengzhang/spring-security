@@ -66,6 +66,8 @@ public final class CsrfFilter extends OncePerRequestFilter {
 	 * The default {@link RequestMatcher} that indicates if CSRF protection is required or
 	 * not. The default is to ignore GET, HEAD, TRACE, OPTIONS and process all other
 	 * requests.
+	 *
+	 * 默认的 {@link RequestMatcher}，用于指示是否需要 CSRF 保护。默认情况下，它将忽略 GET、HEAD、TRACE、OPTIONS 和处理所有其他请求。
 	 */
 	public static final RequestMatcher DEFAULT_CSRF_MATCHER = new DefaultRequiresCsrfMatcher();
 
@@ -83,10 +85,13 @@ public final class CsrfFilter extends OncePerRequestFilter {
 
 	private final CsrfTokenRepository tokenRepository;
 
+	// 用于判断 request 是否需要 CSRF 保护
 	private RequestMatcher requireCsrfProtectionMatcher = DEFAULT_CSRF_MATCHER;
 
+	// 用于处理 Token 验证失败的情况
 	private AccessDeniedHandler accessDeniedHandler = new AccessDeniedHandlerImpl();
 
+	// 用于从 request 的 header 和 param 中解析 CSRF Token
 	private CsrfTokenRequestHandler requestHandler = new XorCsrfTokenRequestAttributeHandler();
 
 	/**
@@ -106,9 +111,15 @@ public final class CsrfFilter extends OncePerRequestFilter {
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
 			throws ServletException, IOException {
+		// 从 CsrfTokenRepository 中获取 CSRF Token，并存储在 request attributes 中，属性名为 org.springframework.security.web.csrf.DeferredCsrfToken
 		DeferredCsrfToken deferredCsrfToken = this.tokenRepository.loadDeferredToken(request, response);
 		request.setAttribute(DeferredCsrfToken.class.getName(), deferredCsrfToken);
+
+		// 从 request attributes 中获取 CSRF Token，并使用随机字节异或来隐藏原始的 CSRF Token，并设置到 request attributes 中，属性名为：
+		// 1. org.springframework.security.web.csrf.CsrfToken
+		// 2. CsrfToken.getParameterName()
 		this.requestHandler.handle(request, response, deferredCsrfToken::get);
+
 		if (!this.requireCsrfProtectionMatcher.matches(request)) {
 			if (this.logger.isTraceEnabled()) {
 				this.logger.trace("Did not protect against CSRF since request did not match "
@@ -117,8 +128,13 @@ public final class CsrfFilter extends OncePerRequestFilter {
 			filterChain.doFilter(request, response);
 			return;
 		}
+
 		CsrfToken csrfToken = deferredCsrfToken.get();
+
+		// 从 request 中的 param 以及 header 中获取 CSRF Token，并通过异或解析出实际 CSRF Token
 		String actualToken = this.requestHandler.resolveCsrfTokenValue(request, csrfToken);
+
+		// 如果实际 CSRF Token 与 request 请求参数中的 CSRF Token 不一致，则抛出异常
 		if (!equalsConstantTime(csrfToken.getToken(), actualToken)) {
 			boolean missingToken = deferredCsrfToken.isGenerated();
 			this.logger
@@ -204,6 +220,7 @@ public final class CsrfFilter extends OncePerRequestFilter {
 
 		private final HashSet<String> allowedMethods = new HashSet<>(Arrays.asList("GET", "HEAD", "TRACE", "OPTIONS"));
 
+		// 非 GET、HEAD、TRACE、OPTIONS 请求都需要 CSRF 保护
 		@Override
 		public boolean matches(HttpServletRequest request) {
 			return !this.allowedMethods.contains(request.getMethod());

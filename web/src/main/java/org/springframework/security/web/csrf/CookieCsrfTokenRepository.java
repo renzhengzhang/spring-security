@@ -38,7 +38,7 @@ import org.springframework.web.util.WebUtils;
  * @author Alex Montoya
  * @since 4.1
  */
-public final class CookieCsrfTokenRepository implements CsrfTokenRepository {
+public final class CookieCsrfTokenRepository implements CsrfTokenRepository { // 支持生成 CSRFToken、也支持将 CSRFToken 保存在 cookie 中
 
 	static final String DEFAULT_CSRF_COOKIE_NAME = "XSRF-TOKEN";
 
@@ -84,6 +84,7 @@ public final class CookieCsrfTokenRepository implements CsrfTokenRepository {
 		return new DefaultCsrfToken(this.headerName, this.parameterName, createNewToken());
 	}
 
+	// 将方法参数中的 token 保存在 cookie 中
 	@Override
 	public void saveToken(CsrfToken token, HttpServletRequest request, HttpServletResponse response) {
 		String tokenValue = (token != null) ? token.getToken() : "";
@@ -102,6 +103,8 @@ public final class CookieCsrfTokenRepository implements CsrfTokenRepository {
 
 		// Set request attribute to signal that response has blank cookie value,
 		// which allows loadToken to return null when token has been removed
+		// 如果 CSRFToken 为空，则将 request 的属性 CSRF_TOKEN_REMOVED_ATTRIBUTE_NAME 设置为 true，标记 CSRFToken 从 request attributes 中移除
+		// 否则，从 request attributes 中移除 CSRF_TOKEN_REMOVED_ATTRIBUTE_NAME 属性，表示 request attributes 中存在 CSRFToken
 		if (!StringUtils.hasLength(tokenValue)) {
 			request.setAttribute(CSRF_TOKEN_REMOVED_ATTRIBUTE_NAME, Boolean.TRUE);
 		}
@@ -114,6 +117,7 @@ public final class CookieCsrfTokenRepository implements CsrfTokenRepository {
 	public CsrfToken loadToken(HttpServletRequest request) {
 		// Return null when token has been removed during the current request
 		// which allows loadDeferredToken to re-generate the token
+		// 如果 request attributes 中存在 CSRF_TOKEN_REMOVED_ATTRIBUTE_NAME 属性且值为 true，则返回 null，表示 request attributes 中不存在 CSRFToken
 		if (Boolean.TRUE.equals(request.getAttribute(CSRF_TOKEN_REMOVED_ATTRIBUTE_NAME))) {
 			return null;
 		}

@@ -34,7 +34,7 @@ import org.springframework.util.Assert;
  * @author Steve Riesenberg
  * @since 5.8
  */
-public final class XorCsrfTokenRequestAttributeHandler extends CsrfTokenRequestAttributeHandler {
+public final class XorCsrfTokenRequestAttributeHandler extends CsrfTokenRequestAttributeHandler { // 用于使用随机字节异或来隐藏原始的 CSRF Token
 
 	private SecureRandom secureRandom = new SecureRandom();
 
@@ -73,6 +73,7 @@ public final class XorCsrfTokenRequestAttributeHandler extends CsrfTokenRequestA
 		return getTokenValue(actualToken, csrfToken.getToken());
 	}
 
+	// 从实际CSRF、中提取原始CSRF令牌
 	private static String getTokenValue(String actualToken, String token) {
 		byte[] actualBytes;
 		try {
@@ -96,10 +97,12 @@ public final class XorCsrfTokenRequestAttributeHandler extends CsrfTokenRequestA
 		System.arraycopy(actualBytes, 0, randomBytes, 0, randomBytesSize);
 		System.arraycopy(actualBytes, randomBytesSize, xoredCsrf, 0, tokenSize);
 
+		// 异或运算，A xor B = C，那么 B xor C = A，可以反推出结果
 		byte[] csrfBytes = xorCsrf(randomBytes, xoredCsrf);
 		return (csrfBytes != null) ? Utf8.decode(csrfBytes) : null;
 	}
 
+	// 将随机字节和原始CSRF字节进行异或运算，并返回一个包含组合随机字节和异或结果字节的数组
 	private static String createXoredCsrfToken(SecureRandom secureRandom, String token) {
 		byte[] tokenBytes = Utf8.encode(token);
 		byte[] randomBytes = new byte[tokenBytes.length];

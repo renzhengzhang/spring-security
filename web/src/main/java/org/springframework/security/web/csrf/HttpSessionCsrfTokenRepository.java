@@ -31,7 +31,7 @@ import org.springframework.util.Assert;
  * @author Rob Winch
  * @since 3.2
  */
-public final class HttpSessionCsrfTokenRepository implements CsrfTokenRepository {
+public final class HttpSessionCsrfTokenRepository implements CsrfTokenRepository { // 将 CSRF Token 保存在 Session 中
 
 	private static final String DEFAULT_CSRF_PARAMETER_NAME = "_csrf";
 
@@ -48,12 +48,14 @@ public final class HttpSessionCsrfTokenRepository implements CsrfTokenRepository
 
 	@Override
 	public void saveToken(CsrfToken token, HttpServletRequest request, HttpServletResponse response) {
+		// 传入 Token 为 null 时，从 Session 中移除 Token
 		if (token == null) {
 			HttpSession session = request.getSession(false);
 			if (session != null) {
 				session.removeAttribute(this.sessionAttributeName);
 			}
 		}
+		// 否则保存 Token 到 Session 中
 		else {
 			HttpSession session = request.getSession();
 			session.setAttribute(this.sessionAttributeName, token);

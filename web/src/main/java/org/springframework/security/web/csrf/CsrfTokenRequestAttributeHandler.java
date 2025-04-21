@@ -31,7 +31,7 @@ import org.springframework.util.Assert;
  * @author Steve Riesenberg
  * @since 5.8
  */
-public class CsrfTokenRequestAttributeHandler implements CsrfTokenRequestHandler {
+public class CsrfTokenRequestAttributeHandler implements CsrfTokenRequestHandler { // 支持将 Supplier<CsrfToken> 放入请求属性和解析请求的 token 值
 
 	private String csrfRequestAttributeName = "_csrf";
 
