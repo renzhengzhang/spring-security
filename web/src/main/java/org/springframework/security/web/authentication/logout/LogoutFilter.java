@@ -79,6 +79,7 @@ public class LogoutFilter extends GenericFilterBean {
 		this.handler = new CompositeLogoutHandler(handlers);
 		Assert.isTrue(!StringUtils.hasLength(logoutSuccessUrl) || UrlUtils.isValidRedirectUrl(logoutSuccessUrl),
 				() -> logoutSuccessUrl + " isn't a valid redirect URL");
+		// 初始化 SimpleUrlLogoutSuccessHandler 作为默认的 LogoutSuccessHandler
 		SimpleUrlLogoutSuccessHandler urlLogoutSuccessHandler = new SimpleUrlLogoutSuccessHandler();
 		if (StringUtils.hasText(logoutSuccessUrl)) {
 			urlLogoutSuccessHandler.setDefaultTargetUrl(logoutSuccessUrl);
@@ -95,15 +96,27 @@ public class LogoutFilter extends GenericFilterBean {
 
 	private void doFilter(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
+		// 如果 logoutRequestMatcher 匹配 URL，则执行登出，后无需登出，默认地址为 "/logout"
 		if (requiresLogout(request, response)) {
 			Authentication auth = this.securityContextHolderStrategy.getContext().getAuthentication();
 			if (this.logger.isDebugEnabled()) {
 				this.logger.debug(LogMessage.format("Logging out [%s]", auth));
 			}
+			// 执行各 LogoutHandler 登出逻辑
+			// 	AbstractRememberMeServices 清除 remember-me cookie
+			// 	CsrfLogoutHandler 清除 CsrfTokenRepository 中的 CsrfToken
+			// 	SecurityContextLogoutHandler 将 session 失效，并在 SecurityContextHolder 放入空的 SecurityContext
+			// 	LogoutSuccessEventPublishingLogoutHandler 发布登出事件
+			// 	PersistentTokenBasedRememberMeServices 清除 PersistentTokenRepository 中的 PersistentToken
+			// 	HeaderWriterLogoutHandler 写入一些响应头
 			this.handler.logout(request, response, auth);
+
+			// 执行 LogoutSuccessHandler 登出逻辑
+			// 默认实现是 SimpleUrlLogoutSuccessHandler，默认跳转至根路径
 			this.logoutSuccessHandler.onLogoutSuccess(request, response, auth);
 			return;
 		}
+
 		chain.doFilter(request, response);
 	}
 

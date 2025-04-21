@@ -38,6 +38,7 @@ public class SimpleUrlLogoutSuccessHandler extends AbstractAuthenticationTargetU
 	@Override
 	public void onLogoutSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication)
 			throws IOException, ServletException {
+		// 登出跳转的简单实现，继承自 AbstractAuthenticationTargetUrlRequestHandler，跟随父类，默认跳转至根路径
 		super.handle(request, response, authentication);
 	}
 

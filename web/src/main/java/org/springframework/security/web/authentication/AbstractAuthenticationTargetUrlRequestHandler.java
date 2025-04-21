@@ -58,7 +58,7 @@ import org.springframework.util.StringUtils;
  * @author Luke Taylor
  * @since 3.0
  */
-public abstract class AbstractAuthenticationTargetUrlRequestHandler {
+public abstract class AbstractAuthenticationTargetUrlRequestHandler {	// 抽象类，用于处理认证相关的重定向逻辑
 
 	protected final Log logger = LogFactory.getLog(this.getClass());
 
@@ -83,11 +83,14 @@ public abstract class AbstractAuthenticationTargetUrlRequestHandler {
 	 */
 	protected void handle(HttpServletRequest request, HttpServletResponse response, Authentication authentication)
 			throws IOException, ServletException {
+		// 判断需要跳转的目标 URL
 		String targetUrl = determineTargetUrl(request, response, authentication);
+		// 如果 response 已经提交，则不进行重定向
 		if (response.isCommitted()) {
 			this.logger.debug(LogMessage.format("Did not redirect to %s since response already committed.", targetUrl));
 			return;
 		}
+		// 执行重定向
 		this.redirectStrategy.sendRedirect(request, response, targetUrl);
 	}
 
@@ -95,7 +98,7 @@ public abstract class AbstractAuthenticationTargetUrlRequestHandler {
 	 * Builds the target URL according to the logic defined in the main class Javadoc
 	 * @since 5.2
 	 */
-	protected String determineTargetUrl(HttpServletRequest request, HttpServletResponse response,
+	protected String determineTargetUrl(HttpServletRequest request, HttpServletResponse response, // 可供子类 Override，这里没有使用 Authentication
 			Authentication authentication) {
 		return determineTargetUrl(request, response);
 	}
@@ -104,14 +107,17 @@ public abstract class AbstractAuthenticationTargetUrlRequestHandler {
 	 * Builds the target URL according to the logic defined in the main class Javadoc.
 	 */
 	protected String determineTargetUrl(HttpServletRequest request, HttpServletResponse response) {
+		// 如果始终使用默认 targetUrl，则直接返回 defaultTargetUrl，也就是根路径
 		if (isAlwaysUseDefaultTargetUrl()) {
 			return this.defaultTargetUrl;
 		}
+		// 从 request 的参数中获取 targetUrl，targetUrlParameter 定义 targetUrl 的参数名
 		String targetUrlParameterValue = getTargetUrlParameterValue(request);
 		if (StringUtils.hasText(targetUrlParameterValue)) {
 			trace("Using url %s from request parameter %s", targetUrlParameterValue, this.targetUrlParameter);
 			return targetUrlParameterValue;
 		}
+		// 如果 useReferer 为 true，则从 request 的 Referer 头部作为 targetUrl
 		if (this.useReferer) {
 			trace("Using url %s from Referer header", request.getHeader("Referer"));
 			return request.getHeader("Referer");
@@ -119,6 +125,7 @@ public abstract class AbstractAuthenticationTargetUrlRequestHandler {
 		return this.defaultTargetUrl;
 	}
 
+	// 通过 targetUrlParameter 变量定义的参数名，从 request 参数中获取 targetUrl
 	private String getTargetUrlParameterValue(HttpServletRequest request) {
 		if (this.targetUrlParameter == null) {
 			return null;
