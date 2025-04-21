@@ -24,6 +24,8 @@ import org.springframework.security.authentication.AuthenticationDetailsSource;
  * Implementation of {@link AuthenticationDetailsSource} which builds the details object
  * from an <tt>HttpServletRequest</tt> object, creating a {@code WebAuthenticationDetails}
  * .
+ * <p>
+ * 从 HttpServletRequest 中提取信息构建 WebAuthenticationDetails（包含 remoteAddress 和 sessionId）
  *
  * @author Ben Alex
  */

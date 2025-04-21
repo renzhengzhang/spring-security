@@ -96,8 +96,11 @@ public class BasicAuthenticationFilter extends OncePerRequestFilter {
 	private SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
 		.getContextHolderStrategy();
 
+	// 用来在发生 AuthenticationException 调用，处理 AuthenticationException
+	// 例如 BasicAuthenticationEntryPoint 会在响应头中返回 WWW-Authenticate header 和错误信息
 	private AuthenticationEntryPoint authenticationEntryPoint;
 
+	// 用于验证 Authentication，并向 Authentication 中填充信息
 	private AuthenticationManager authenticationManager;
 
 	private RememberMeServices rememberMeServices = new NullRememberMeServices();
@@ -106,8 +109,10 @@ public class BasicAuthenticationFilter extends OncePerRequestFilter {
 
 	private String credentialsCharset = "UTF-8";
 
+	// BasicAuthenticationConverter 将请求头中的 Authorization 解析为 UsernamePasswordAuthenticationToken
 	private AuthenticationConverter authenticationConverter = new BasicAuthenticationConverter();
 
+	// 默认将 SecurityContext 存入 request attributes 中
 	private SecurityContextRepository securityContextRepository = new RequestAttributeSecurityContextRepository();
 
 	/**
@@ -174,17 +179,23 @@ public class BasicAuthenticationFilter extends OncePerRequestFilter {
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
 		try {
+			// BasicAuthenticationConverter 将请求头中的 Authorization 解析为 UsernamePasswordAuthenticationToken
 			Authentication authRequest = this.authenticationConverter.convert(request);
+			// Question 为什么没解析出 Authentication，则不进行处理？
 			if (authRequest == null) {
 				this.logger.trace("Did not process authentication request since failed to find "
 						+ "username and password in Basic Authorization header");
 				chain.doFilter(request, response);
 				return;
 			}
+
 			String username = authRequest.getName();
 			this.logger.trace(LogMessage.format("Found username '%s' in Basic Authorization header", username));
+			// 除 AnonymousAuthenticationToken 外，已经认证过的用户，则不进行认证
 			if (authenticationIsRequired(username)) {
+				// 执行认证逻辑
 				Authentication authResult = this.authenticationManager.authenticate(authRequest);
+				// 认证成功后，将认证信息存入 SecurityContextHolder 中
 				SecurityContext context = this.securityContextHolderStrategy.createEmptyContext();
 				context.setAuthentication(authResult);
 				this.securityContextHolderStrategy.setContext(context);
@@ -192,15 +203,21 @@ public class BasicAuthenticationFilter extends OncePerRequestFilter {
 					this.logger.debug(LogMessage.format("Set SecurityContextHolder to %s", authResult));
 				}
 				this.rememberMeServices.loginSuccess(request, response, authResult);
+				// 将 SecurityContext 保存到 request attributes 中
 				this.securityContextRepository.saveContext(context, request, response);
 				onSuccessfulAuthentication(request, response, authResult);
 			}
 		}
 		catch (AuthenticationException ex) {
+			// 认证失败，清除 SecurityContextHolder
 			this.securityContextHolderStrategy.clearContext();
 			this.logger.debug("Failed to process authentication request", ex);
 			this.rememberMeServices.loginFail(request, response);
+
+			// 认证失败，执行 onUnsuccessfulAuthentication 方法
 			onUnsuccessfulAuthentication(request, response, ex);
+
+			// 认证失败，判断是否需要忽略失败
 			if (this.ignoreFailure) {
 				chain.doFilter(request, response);
 			}
@@ -216,6 +233,7 @@ public class BasicAuthenticationFilter extends OncePerRequestFilter {
 	protected boolean authenticationIsRequired(String username) {
 		// Only reauthenticate if username doesn't match SecurityContextHolder and user
 		// isn't authenticated (see SEC-53)
+		// 当 SecurityContextHolder 中不存在 Authentication、或者 username 不匹配、或者 Authentication 未认证时，需要认证
 		Authentication existingAuth = this.securityContextHolderStrategy.getContext().getAuthentication();
 		if (existingAuth == null || !existingAuth.getName().equals(username) || !existingAuth.isAuthenticated()) {
 			return true;
@@ -230,6 +248,8 @@ public class BasicAuthenticationFilter extends OncePerRequestFilter {
 		// provided by form and digest, both of which force re-authentication if the
 		// respective header is detected (and in doing so replace/ any existing
 		// AnonymousAuthenticationToken). See SEC-610.
+
+		// 如果 SecurityContextHolder 中存在已认证的 AnonymousAuthenticationToken，也需要重新认证
 		return (existingAuth instanceof AnonymousAuthenticationToken);
 	}
 

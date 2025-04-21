@@ -42,7 +42,7 @@ import org.springframework.util.function.SingletonSupplier;
  * @see HttpSessionSecurityContextRepository
  * @see SaveContextOnUpdateOrErrorResponseWrapper
  */
-public interface SecurityContextRepository { // 用于存储 SecurityContext。当 SecurityContext 从 ThreadLocal 中移除时存储在这里？
+public interface SecurityContextRepository { // 用于存储 SecurityContext
 
 	/**
 	 * Obtains the security context for the supplied request. For an unauthenticated user,

@@ -33,7 +33,7 @@ import org.springframework.security.core.AuthenticationException;
  * @author Sergey Bespalov
  * @since 5.2.0
  */
-public interface AuthenticationConverter {
+public interface AuthenticationConverter { // 从 request 中提取 Authentication，也就是请求中的验证信息
 
 	Authentication convert(HttpServletRequest request);
 

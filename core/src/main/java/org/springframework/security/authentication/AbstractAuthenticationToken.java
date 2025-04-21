@@ -33,6 +33,8 @@ import org.springframework.util.Assert;
  * Base class for <code>Authentication</code> objects.
  * <p>
  * Implementations which use this class should be immutable.
+ * <p>
+ * AuthenticationToken 实现的基类，包含 authorities、details、credentials、principal、isAuthenticated 信息
  *
  * @author Ben Alex
  * @author Luke Taylor
@@ -111,6 +113,7 @@ public abstract class AbstractAuthenticationToken implements Authentication, Cre
 		eraseSecret(this.details);
 	}
 
+	// 清除 Credentials，比如密码
 	private void eraseSecret(Object secret) {
 		if (secret instanceof CredentialsContainer) {
 			((CredentialsContainer) secret).eraseCredentials();

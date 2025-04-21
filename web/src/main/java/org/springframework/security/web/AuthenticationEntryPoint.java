@@ -30,7 +30,7 @@ import org.springframework.security.web.access.ExceptionTranslationFilter;
  *
  * @author Ben Alex
  */
-public interface AuthenticationEntryPoint {
+public interface AuthenticationEntryPoint {	// 用于处理认证异常情况
 
 	/**
 	 * Commences an authentication scheme.

@@ -35,6 +35,8 @@ import org.springframework.util.StringUtils;
  * Converts from a HttpServletRequest to {@link UsernamePasswordAuthenticationToken} that
  * can be authenticated. Null authentication possible if there was no Authorization header
  * with Basic authentication scheme.
+ * <p>
+ * Basic 认证转换器，用于从 request 中获取 Basic 认证信息，并构建 UsernamePasswordAuthenticationToken
  *
  * @author Sergey Bespalov
  * @since 5.2.0
@@ -43,11 +45,13 @@ public class BasicAuthenticationConverter implements AuthenticationConverter {
 
 	public static final String AUTHENTICATION_SCHEME_BASIC = "Basic";
 
+	// 基于 request 构建 WebAuthenticationDetails
 	private AuthenticationDetailsSource<HttpServletRequest, ?> authenticationDetailsSource;
 
 	private Charset credentialsCharset = StandardCharsets.UTF_8;
 
 	public BasicAuthenticationConverter() {
+		// 默认的 AuthenticationDetailsSource，用于从 request 构建 WebAuthenticationDetails（包含 remoteAddress 和 sessionId）
 		this(new WebAuthenticationDetailsSource());
 	}
 
@@ -74,8 +78,10 @@ public class BasicAuthenticationConverter implements AuthenticationConverter {
 		this.authenticationDetailsSource = authenticationDetailsSource;
 	}
 
+	// 从 request 中获取 Basic 认证信息，并构建 UsernamePasswordAuthenticationToken
 	@Override
 	public UsernamePasswordAuthenticationToken convert(HttpServletRequest request) {
+		// 从请求头 Header 属性 Authorization 中获取 Basic
 		String header = request.getHeader(HttpHeaders.AUTHORIZATION);
 		if (header == null) {
 			return null;
@@ -84,9 +90,11 @@ public class BasicAuthenticationConverter implements AuthenticationConverter {
 		if (!StringUtils.startsWithIgnoreCase(header, AUTHENTICATION_SCHEME_BASIC)) {
 			return null;
 		}
+		// 必须以 Basic 开头
 		if (header.equalsIgnoreCase(AUTHENTICATION_SCHEME_BASIC)) {
 			throw new BadCredentialsException("Empty basic authentication token");
 		}
+		// base64 解码
 		byte[] base64Token = header.substring(6).getBytes(StandardCharsets.UTF_8);
 		byte[] decoded = decode(base64Token);
 		String token = new String(decoded, getCredentialsCharset(request));
@@ -94,6 +102,7 @@ public class BasicAuthenticationConverter implements AuthenticationConverter {
 		if (delim == -1) {
 			throw new BadCredentialsException("Invalid basic authentication token");
 		}
+		// 基于 username(principal) 和 password(credentials) 构建 UsernamePasswordAuthenticationToken
 		UsernamePasswordAuthenticationToken result = UsernamePasswordAuthenticationToken
 			.unauthenticated(token.substring(0, delim), token.substring(delim + 1));
 		result.setDetails(this.authenticationDetailsSource.buildDetails(request));

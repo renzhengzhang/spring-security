@@ -34,7 +34,7 @@ import org.springframework.util.Assert;
  * @author Ben Alex
  * @author Norbert Nowak
  */
-public class UsernamePasswordAuthenticationToken extends AbstractAuthenticationToken {
+public class UsernamePasswordAuthenticationToken extends AbstractAuthenticationToken {	// 包含 principal 和 credentials 的 Authentication 实现
 
 	private static final long serialVersionUID = SpringSecurityCoreVersion.SERIAL_VERSION_UID;
 
@@ -111,6 +111,7 @@ public class UsernamePasswordAuthenticationToken extends AbstractAuthenticationT
 
 	@Override
 	public void setAuthenticated(boolean isAuthenticated) throws IllegalArgumentException {
+		// 这里只能设置为 false，只能通过构造方法传入 GrantedAuthority 时设置为 true
 		Assert.isTrue(!isAuthenticated,
 				"Cannot set this token to trusted - use constructor which takes a GrantedAuthority list instead");
 		super.setAuthenticated(false);
