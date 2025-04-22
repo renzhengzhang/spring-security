@@ -37,6 +37,9 @@ import org.springframework.web.util.WebUtils;
 /**
  * An Implementation of {@code RequestCache} which saves the original request URI in a
  * cookie.
+ * 
+ * <p>
+ * 保存当前请求作为 redirectUrl 至 Cookie，供请求认证通过后进行跳转
  *
  * @author Zeeshan Adnan
  * @since 5.4
@@ -57,6 +60,8 @@ public class CookieRequestCache implements RequestCache {
 			this.logger.debug("Request not saved as configured RequestMatcher did not match");
 			return;
 		}
+
+		// 保存 Cookie
 		String redirectUrl = UrlUtils.buildFullRequestUrl(request);
 		Cookie savedCookie = new Cookie(COOKIE_NAME, encodeCookie(redirectUrl));
 		savedCookie.setMaxAge(COOKIE_MAX_AGE);
@@ -104,12 +109,14 @@ public class CookieRequestCache implements RequestCache {
 			this.logger.debug("saved request doesn't match");
 			return null;
 		}
+		// 请求匹配之后，需要清空 COOKIE_NAME 
 		this.removeRequest(request, response);
 		return new SavedRequestAwareWrapper(saved, request);
 	}
 
 	@Override
 	public void removeRequest(HttpServletRequest request, HttpServletResponse response) {
+		// 清空 COOKIE_NAME
 		Cookie removeSavedRequestCookie = new Cookie(COOKIE_NAME, "");
 		removeSavedRequestCookie.setSecure(request.isSecure());
 		removeSavedRequestCookie.setHttpOnly(true);

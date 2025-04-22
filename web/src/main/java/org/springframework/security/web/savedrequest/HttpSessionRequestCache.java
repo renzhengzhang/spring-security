@@ -36,6 +36,9 @@ import org.springframework.web.util.UriComponentsBuilder;
  *
  * The {@link DefaultSavedRequest} class is used as the implementation.
  *
+ * <p>
+ * 保存当前请求至 HttpSession，用于 AbstractAuthenticationProcessingFilter 身份认证成功之后的跳转
+ * 
  * @author Luke Taylor
  * @author Eddú Meléndez
  * @since 3.0
@@ -46,10 +49,14 @@ public class HttpSessionRequestCache implements RequestCache {
 
 	protected final Log logger = LogFactory.getLog(this.getClass());
 
+	// 用于处理端口映射。
+	// 1. http 协议：serverPort 443 -> 80、8443 -> 8080
+	// 2. https 协议：serverPort 80 -> 443、8080 -> 8443
 	private PortResolver portResolver = new PortResolverImpl();
 
 	private boolean createSessionAllowed = true;
 
+	// 默认匹配所有请求
 	private RequestMatcher requestMatcher = AnyRequestMatcher.INSTANCE;
 
 	private String sessionAttrName = SAVED_REQUEST;
@@ -61,6 +68,7 @@ public class HttpSessionRequestCache implements RequestCache {
 	 */
 	@Override
 	public void saveRequest(HttpServletRequest request, HttpServletResponse response) {
+		// 请求不匹配，不保存
 		if (!this.requestMatcher.matches(request)) {
 			if (this.logger.isTraceEnabled()) {
 				this.logger
@@ -69,10 +77,14 @@ public class HttpSessionRequestCache implements RequestCache {
 			return;
 		}
 
+		// 如果允许创建 session 或者 sessino 本就存在，才保存
 		if (this.createSessionAllowed || request.getSession(false) != null) {
 			// Store the HTTP request itself. Used by
 			// AbstractAuthenticationProcessingFilter
 			// for redirection after successful authentication (SEC-29)
+
+			// DefaultSavedRequest 的 getRedirectUrl() 返回值就是当前 request 的 url
+			// 用于 AbstractAuthenticationProcessingFilter 身份认证成功之后的跳转
 			DefaultSavedRequest savedRequest = new DefaultSavedRequest(request, this.portResolver,
 					this.matchingRequestParameterName);
 			request.getSession().setAttribute(this.sessionAttrName, savedRequest);
@@ -80,6 +92,7 @@ public class HttpSessionRequestCache implements RequestCache {
 				this.logger.debug(LogMessage.format("Saved request %s to session", savedRequest.getRedirectUrl()));
 			}
 		}
+		// 不允许创建 session 且 session 不存在，不保存
 		else {
 			this.logger.trace("Did not save request since there's no session and createSessionAllowed is false");
 		}
@@ -100,8 +113,12 @@ public class HttpSessionRequestCache implements RequestCache {
 		}
 	}
 
+	/**
+	 * 判断当前q
+	 */
 	@Override
 	public HttpServletRequest getMatchingRequest(HttpServletRequest request, HttpServletResponse response) {
+		// 如果当前请求中没有匹配参数，返回 null
 		if (this.matchingRequestParameterName != null) {
 			if (!StringUtils.hasText(request.getQueryString())
 					|| !UriComponentsBuilder.fromUriString(UrlUtils.buildRequestUrl(request))
@@ -113,6 +130,8 @@ public class HttpSessionRequestCache implements RequestCache {
 				return null;
 			}
 		}
+
+		// HttpSession 中没有保存的请求、或者当前请求与保存请求不匹配时，返回 null
 		SavedRequest saved = getRequest(request, response);
 		if (saved == null) {
 			this.logger.trace("No saved request");
@@ -125,6 +144,8 @@ public class HttpSessionRequestCache implements RequestCache {
 			}
 			return null;
 		}
+
+		// 如果请求匹配，需要清除 HttpSession 中保存的请求
 		removeRequest(request, response);
 		if (this.logger.isDebugEnabled()) {
 			this.logger.debug(LogMessage.format("Loaded matching saved request %s", saved.getRedirectUrl()));
@@ -132,6 +153,9 @@ public class HttpSessionRequestCache implements RequestCache {
 		return new SavedRequestAwareWrapper(saved, request);
 	}
 
+	/**
+	 * 判断当前请求与保存的请求是否匹配，仅匹配
+	 */
 	private boolean matchesSavedRequest(HttpServletRequest request, SavedRequest savedRequest) {
 		if (savedRequest instanceof DefaultSavedRequest) {
 			DefaultSavedRequest defaultSavedRequest = (DefaultSavedRequest) savedRequest;
