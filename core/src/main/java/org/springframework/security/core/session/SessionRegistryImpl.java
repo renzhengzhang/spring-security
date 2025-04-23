@@ -44,6 +44,9 @@ import org.springframework.util.Assert;
  * {@docRoot}/org/springframework/security/web/session/HttpSessionEventPublisher.html">HttpSessionEventPublisher</a> in
  * the <tt>web.xml</tt> file so that this class is notified of sessions that expire.
  *
+ * <p>
+ * 用于记录用户的在线的 Session 信息，用户使用 principal 标识
+ *
  * @author Ben Alex
  * @author Luke Taylor
  */
@@ -75,10 +78,13 @@ public class SessionRegistryImpl implements SessionRegistry, ApplicationListener
 
 	@Override
 	public List<SessionInformation> getAllSessions(Object principal, boolean includeExpiredSessions) {
+		// 获取当前用户所有的 sessionId
 		Set<String> sessionsUsedByPrincipal = this.principals.get(principal);
 		if (sessionsUsedByPrincipal == null) {
 			return Collections.emptyList();
 		}
+
+		// 根据 sessionId 获取 SessionInformation
 		List<SessionInformation> list = new ArrayList<>(sessionsUsedByPrincipal.size());
 		for (String sessionId : sessionsUsedByPrincipal) {
 			SessionInformation sessionInformation = getSessionInformation(sessionId);
@@ -101,10 +107,12 @@ public class SessionRegistryImpl implements SessionRegistry, ApplicationListener
 	@Override
 	public void onApplicationEvent(AbstractSessionEvent event) {
 		if (event instanceof SessionDestroyedEvent sessionDestroyedEvent) {
+			// Session 销毁事件，移除 SessionInformation
 			String sessionId = sessionDestroyedEvent.getId();
 			removeSessionInformation(sessionId);
 		}
 		else if (event instanceof SessionIdChangedEvent sessionIdChangedEvent) {
+			// Session 变更事件，移除旧的 SessionInformation，注册新的 SessionInformation
 			String oldSessionId = sessionIdChangedEvent.getOldSessionId();
 			if (this.sessionIds.containsKey(oldSessionId)) {
 				Object principal = this.sessionIds.get(oldSessionId).getPrincipal();
@@ -117,12 +125,15 @@ public class SessionRegistryImpl implements SessionRegistry, ApplicationListener
 	@Override
 	public void refreshLastRequest(String sessionId) {
 		Assert.hasText(sessionId, "SessionId required as per interface contract");
+
+		// 按照 sessionId 更新最后一次请求时间
 		SessionInformation info = getSessionInformation(sessionId);
 		if (info != null) {
 			info.refreshLastRequest();
 		}
 	}
 
+	// 注册 sessionId
 	@Override
 	public void registerNewSession(String sessionId, Object principal) {
 		Assert.hasText(sessionId, "SessionId required as per interface contract");
@@ -144,6 +155,7 @@ public class SessionRegistryImpl implements SessionRegistry, ApplicationListener
 		});
 	}
 
+	// 移除 sessionId
 	@Override
 	public void removeSessionInformation(String sessionId) {
 		Assert.hasText(sessionId, "SessionId required as per interface contract");

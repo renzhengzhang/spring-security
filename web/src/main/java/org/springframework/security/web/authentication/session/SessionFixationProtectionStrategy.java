@@ -86,7 +86,10 @@ public class SessionFixationProtectionStrategy extends AbstractSessionFixationPr
 		String originalSessionId = session.getId();
 		this.logger.debug(LogMessage.of(() -> "Invalidating session with Id '" + originalSessionId + "' "
 				+ (this.migrateSessionAttributes ? "and" : "without") + " migrating attributes."));
+		// 如果不迁移 session 属性，默认还是需要保留 Spring Security 属性
 		Map<String, Object> attributesToMigrate = extractAttributes(session);
+
+		// 将之前的 session 失效，同时创建一个新的 session，同时将之前的 session 属性复制到新的 session
 		int maxInactiveIntervalToMigrate = session.getMaxInactiveInterval();
 		session.invalidate();
 		session = request.getSession(true); // we now have a new session

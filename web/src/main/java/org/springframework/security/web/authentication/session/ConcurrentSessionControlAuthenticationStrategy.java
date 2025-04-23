@@ -61,6 +61,9 @@ import org.springframework.util.Assert;
  * {@link RegisterSessionAuthenticationStrategy} using
  * {@link CompositeSessionAuthenticationStrategy}.
  * </p>
+ * 
+ * <p>
+ * 用于同一用户最大在线数量控制。当用户最大在线数量超过限制，可以支持配置抛出 SessionAuthenticationException 或按照最早登录时间过期 session
  *
  * @author Luke Taylor
  * @author Rob Winch
@@ -76,6 +79,7 @@ public class ConcurrentSessionControlAuthenticationStrategy
 
 	private boolean exceptionIfMaximumExceeded = false;
 
+	// 默认最多允许一个同时在线
 	private int maximumSessions = 1;
 
 	/**
@@ -94,17 +98,22 @@ public class ConcurrentSessionControlAuthenticationStrategy
 	@Override
 	public void onAuthentication(Authentication authentication, HttpServletRequest request,
 			HttpServletResponse response) {
+		// 获取当前用户的最大在线数量（等于 -1 时代表没有卡控）
 		int allowedSessions = getMaximumSessionsForThisUser(authentication);
 		if (allowedSessions == -1) {
 			// We permit unlimited logins
 			return;
 		}
+
+		// 获取当前用户的所有在线会话，如果在线数量小于最大在线数量，放行
 		List<SessionInformation> sessions = this.sessionRegistry.getAllSessions(authentication.getPrincipal(), false);
 		int sessionCount = sessions.size();
 		if (sessionCount < allowedSessions) {
 			// They haven't got too many login sessions running at present
 			return;
 		}
+
+		// 如果在线数量小于等于在线数量，必须找到和当前会话 id 一样的 session，要不然还是认为超过最大在线数量
 		if (sessionCount == allowedSessions) {
 			HttpSession session = request.getSession(false);
 			if (session != null) {
@@ -119,6 +128,8 @@ public class ConcurrentSessionControlAuthenticationStrategy
 			// If the session is null, a new one will be created by the parent class,
 			// exceeding the allowed number
 		}
+
+		// 默认情况下，超过最大在线数量需要抛出异常，则抛出 SessionAuthenticationException，否则需要将最旧的会话进行过期
 		allowableSessionsExceeded(sessions, allowedSessions, this.sessionRegistry);
 	}
 
@@ -144,11 +155,14 @@ public class ConcurrentSessionControlAuthenticationStrategy
 	 */
 	protected void allowableSessionsExceeded(List<SessionInformation> sessions, int allowableSessions,
 			SessionRegistry registry) throws SessionAuthenticationException {
+		
+		// 如果需要超过最大在线数量需要抛出异常，则抛出 SessionAuthenticationException，否则需要将最旧的会话进行过期
 		if (this.exceptionIfMaximumExceeded || (sessions == null)) {
 			throw new SessionAuthenticationException(
 					this.messages.getMessage("ConcurrentSessionControlAuthenticationStrategy.exceededAllowed",
 							new Object[] { allowableSessions }, "Maximum sessions of {0} for this principal exceeded"));
 		}
+		
 		// Determine least recently used sessions, and mark them for invalidation
 		sessions.sort(Comparator.comparing(SessionInformation::getLastRequest));
 		int maximumSessionsExceededBy = sessions.size() - allowableSessions + 1;

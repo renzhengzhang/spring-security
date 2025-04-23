@@ -35,7 +35,12 @@ import org.springframework.web.util.WebUtils;
  * 
  * <p>
  * 用于在登录认证成功时，变更一下 SesssionId 防止固定会话攻击 (Session Fixation Attack)
- *
+ * <p>
+ * 目前有俩个子类实现：
+ * <ul>
+ *     <li>SessionFixationProtectionStrategy：将旧的 session 失效，创建新的 session，并支持配置是否迁移 session 属性</li>
+ *     <li>ChangeSessionIdAuthenticationStrategy：直接修改现有 session 的 Id</li>
+ * </ul>
  * @author Rob Winch
  * @since 3.2
  */

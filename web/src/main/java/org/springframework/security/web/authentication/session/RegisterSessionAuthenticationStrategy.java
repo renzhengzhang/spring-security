@@ -39,6 +39,9 @@ import org.springframework.util.Assert;
  * timed out sessions) are removed. This is typically done by adding
  * {@link HttpSessionEventPublisher}.
  *
+ * <p>
+ * 用于在身份成功认证后注册用户 Session 到 SessionRegistry，用于管理用户在线情况
+ *
  * @author Luke Taylor
  * @author Rob Winch
  * @since 3.2
