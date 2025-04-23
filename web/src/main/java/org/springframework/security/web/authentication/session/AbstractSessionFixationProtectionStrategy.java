@@ -32,6 +32,9 @@ import org.springframework.web.util.WebUtils;
 
 /**
  * A base class for performing session fixation protection.
+ * 
+ * <p>
+ * 用于在登录认证成功时，变更一下 SesssionId 防止固定会话攻击 (Session Fixation Attack)
  *
  * @author Rob Winch
  * @since 3.2
@@ -72,12 +75,15 @@ public abstract class AbstractSessionFixationProtectionStrategy
 	@Override
 	public void onAuthentication(Authentication authentication, HttpServletRequest request,
 			HttpServletResponse response) {
+		// 如果本身不存在 session 且不允许创建 session，则什么都不干
 		boolean hadSessionAlready = request.getSession(false) != null;
 		if (!hadSessionAlready && !this.alwaysCreateSession) {
 			// Session fixation isn't a problem if there's no session
 			return;
 		}
+
 		// Create new session if necessary
+		// 若 session 存在且 sessionId 合法，则变更 sessionId
 		HttpSession session = request.getSession();
 		if (hadSessionAlready && request.isRequestedSessionIdValid()) {
 			String originalSessionId;
@@ -86,6 +92,7 @@ public abstract class AbstractSessionFixationProtectionStrategy
 			synchronized (mutex) {
 				// We need to migrate to a new session
 				originalSessionId = session.getId();
+				// 供子类实现，修改 sessionId
 				session = applySessionFixation(request);
 				newSessionId = session.getId();
 			}
