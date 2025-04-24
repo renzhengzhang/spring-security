@@ -58,6 +58,8 @@ public class RequestCacheAwareFilter extends GenericFilterBean {
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
+		// 如果当前请求存在对应的保存请求，则将保存请求封装成 HttpServletRequest，后续使用缓存的请求
+		// 注意：RequestCache 中的缓存请求被获取到一次之后，会被清空
 		HttpServletRequest wrappedSavedRequest = this.requestCache.getMatchingRequest((HttpServletRequest) request,
 				(HttpServletResponse) response);
 		chain.doFilter((wrappedSavedRequest != null) ? wrappedSavedRequest : request, response);
