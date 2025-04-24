@@ -38,7 +38,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  *
  * <p>
  * 保存当前请求至 HttpSession，用于 AbstractAuthenticationProcessingFilter 身份认证成功之后的跳转
- * 
+ *
  * @author Luke Taylor
  * @author Eddú Meléndez
  * @since 3.0
@@ -77,7 +77,7 @@ public class HttpSessionRequestCache implements RequestCache {
 			return;
 		}
 
-		// 如果允许创建 session 或者 sessino 本就存在，才保存
+		// 如果允许创建 session 或者 session 本就存在，才保存
 		if (this.createSessionAllowed || request.getSession(false) != null) {
 			// Store the HTTP request itself. Used by
 			// AbstractAuthenticationProcessingFilter

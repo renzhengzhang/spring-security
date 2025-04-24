@@ -22,6 +22,9 @@ import org.springframework.security.core.AuthenticationException;
 /**
  * Processes an {@link Authentication} request.
  *
+ * <p>
+ * 用于认证请求。使用传入的 Authentication 进行身份认证，并返回一个完全填充的 Authentication 对象（包括授予的权限）。
+ *
  * @author Ben Alex
  */
 public interface AuthenticationManager {

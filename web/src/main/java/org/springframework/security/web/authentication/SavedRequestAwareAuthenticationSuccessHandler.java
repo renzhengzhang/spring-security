@@ -60,6 +60,9 @@ import org.springframework.util.StringUtils;
  * it will delegate to the base class.</li>
  * </ul>
  *
+ * <p>
+ * 认证成功之后进行链接跳转，如果有 CachedRequest，则跳转至 CachedRequest，默认跳转至根路径或者请求参数中的目标路径
+ *
  * @author Luke Taylor
  * @since 3.0
  */
@@ -72,11 +75,15 @@ public class SavedRequestAwareAuthenticationSuccessHandler extends SimpleUrlAuth
 	@Override
 	public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
 			Authentication authentication) throws ServletException, IOException {
+		// 1. 如果请求缓存中没有 CachedRequest，则调用父类 SimpleUrlAuthenticationSuccessHandler 进行跳转，默认跳转至根路径
 		SavedRequest savedRequest = this.requestCache.getRequest(request, response);
 		if (savedRequest == null) {
 			super.onAuthenticationSuccess(request, response, authentication);
 			return;
 		}
+
+		// 2. 即便有 CachedRequest，但是如果请求参数中包含 targetUrlParameter，或者 alwaysUseDefaultTargetUrl 为 true，则跳转至指定路径
+		// 	  同时移除 CachedRequest
 		String targetUrlParameter = getTargetUrlParameter();
 		if (isAlwaysUseDefaultTargetUrl()
 				|| (targetUrlParameter != null && StringUtils.hasText(request.getParameter(targetUrlParameter)))) {
@@ -84,8 +91,12 @@ public class SavedRequestAwareAuthenticationSuccessHandler extends SimpleUrlAuth
 			super.onAuthenticationSuccess(request, response, authentication);
 			return;
 		}
+
+		// 移除请求属性中身份认证失败的相关属性
 		clearAuthenticationAttributes(request);
 		// Use the DefaultSavedRequest URL
+
+		// 跳转至 CachedRequest 的 URL
 		String targetUrl = savedRequest.getRedirectUrl();
 		getRedirectStrategy().sendRedirect(request, response, targetUrl);
 	}

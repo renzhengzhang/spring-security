@@ -24,6 +24,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.security.authentication.CredentialsExpiredException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.AuthenticationEntryPoint;
 
 /**
  * Strategy used to handle a failed authentication attempt.
@@ -33,6 +34,9 @@ import org.springframework.security.core.AuthenticationException;
  * implemented depending on the type of the exception. For example, a
  * {@link CredentialsExpiredException} might cause a redirect to a web controller which
  * allowed the user to change their password.
+ *
+ * <p>
+ * TODO 和 {@link AuthenticationEntryPoint } 有什么区别
  *
  * @author Luke Taylor
  * @since 3.0

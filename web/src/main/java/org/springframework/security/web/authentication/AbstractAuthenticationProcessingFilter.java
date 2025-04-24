@@ -112,7 +112,7 @@ import org.springframework.web.filter.GenericFilterBean;
  * @author Ben Alex
  * @author Luke Taylor
  */
-public abstract class AbstractAuthenticationProcessingFilter extends GenericFilterBean
+public abstract class AbstractAuthenticationProcessingFilter extends GenericFilterBean // 用于处理浏览器 http 协议请求认证
 		implements ApplicationEventPublisherAware, MessageSourceAware {
 
 	private SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
@@ -136,8 +136,14 @@ public abstract class AbstractAuthenticationProcessingFilter extends GenericFilt
 
 	private boolean allowSessionCreation = true;
 
+	// 身份认证成功处理器
+	// - SavedRequestAwareAuthenticationSuccessHandler
+	// 	 认证成功之后进行链接跳转，如果有 CachedRequest，则跳转至 CachedRequest，默认跳转至根路径或者请求参数中的目标路径
 	private AuthenticationSuccessHandler successHandler = new SavedRequestAwareAuthenticationSuccessHandler();
 
+	// 身份认证失败处理器
+	// - SimpleUrlAuthenticationFailureHandler
+	//   认证失败之后进行链接跳转，若配置了 failureUrl，则跳转至 failureUrl，否则在请求 session 中设置错误信息
 	private AuthenticationFailureHandler failureHandler = new SimpleUrlAuthenticationFailureHandler();
 
 	private SecurityContextRepository securityContextRepository = new RequestAttributeSecurityContextRepository();
@@ -223,29 +229,49 @@ public abstract class AbstractAuthenticationProcessingFilter extends GenericFilt
 
 	private void doFilter(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
+		// 判断是否需要身份认证，通过 defaultFilterProcessesUrl 或者传入的 RequestMatcher 进行匹配
 		if (!requiresAuthentication(request, response)) {
 			chain.doFilter(request, response);
 			return;
 		}
 		try {
+			// 尝试进行身份认证，供子类实现
 			Authentication authenticationResult = attemptAuthentication(request, response);
+
+			// TODO 什么时候 authenticationResult 返回 null？为什么需要立即返回？
 			if (authenticationResult == null) {
 				// return immediately as subclass has indicated that it hasn't completed
 				return;
 			}
+
+			// 执行一些 Session 策略操作：
+			// 默认什么都不干，但是提供如下能力：
+			// 1. AbstractSessionFixationProtectionStrategy - 变更 sessionId，防止固定会话攻击
+			// 2. CsrfAuthenticationStrategy - 删除 CsrfTokenRepository 中保存的 CsrfToken，并重新（延迟）生成
+			// 3. RegisterSessionAuthenticationStrategy - 用于在身份成功认证后注册用户 Session 到 SessionRegistry，用于管理用户在线情况
+			// 4. ConcurrentSessionControlAuthenticationStrategy - 用于同一用户最大在线数量控制。
+			// 	  当用户最大在线数量超过限制，可以支持配置抛出 SessionAuthenticationException 或按照最早登录时间过期 session
 			this.sessionStrategy.onAuthentication(authenticationResult, request, response);
+
 			// Authentication success
+			// 身份认证成功，判断是否需要继续执行过滤器链，默认不需要
+			// TODO 什么时候需要设置为需要继续执行过滤器链呢？
 			if (this.continueChainBeforeSuccessfulAuthentication) {
 				chain.doFilter(request, response);
 			}
+
+			// 执行身份认证成功，走认证成功流程
 			successfulAuthentication(request, response, chain, authenticationResult);
 		}
 		catch (InternalAuthenticationServiceException failed) {
 			this.logger.error("An internal error occurred while trying to authenticate the user.", failed);
+
+			// 因内部错误身份认证失败，走认证失败流程
 			unsuccessfulAuthentication(request, response, failed);
 		}
 		catch (AuthenticationException ex) {
 			// Authentication failed
+			// 身份认证失败，走认证失败流程
 			unsuccessfulAuthentication(request, response, ex);
 		}
 	}
@@ -319,6 +345,7 @@ public abstract class AbstractAuthenticationProcessingFilter extends GenericFilt
 	 */
 	protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain,
 			Authentication authResult) throws IOException, ServletException {
+		// 将认证成功后的 Authentication 放入 SecurityContextHolder 中以及 SecurityContextRepository 中
 		SecurityContext context = this.securityContextHolderStrategy.createEmptyContext();
 		context.setAuthentication(authResult);
 		this.securityContextHolderStrategy.setContext(context);
@@ -326,10 +353,17 @@ public abstract class AbstractAuthenticationProcessingFilter extends GenericFilt
 		if (this.logger.isDebugEnabled()) {
 			this.logger.debug(LogMessage.format("Set SecurityContextHolder to %s", authResult));
 		}
+
+		// 执行 rememberMe 登录成功逻辑
 		this.rememberMeServices.loginSuccess(request, response, authResult);
+
+		// 发布认证成功事件
 		if (this.eventPublisher != null) {
 			this.eventPublisher.publishEvent(new InteractiveAuthenticationSuccessEvent(authResult, this.getClass()));
 		}
+
+		// 默认使用 SavedRequestAwareAuthenticationSuccessHandler
+		// 认证成功之后进行链接跳转，如果有 CachedRequest，则跳转至 CachedRequest，默认跳转至根路径或者请求参数中的目标路径
 		this.successHandler.onAuthenticationSuccess(request, response, authResult);
 	}
 
@@ -346,11 +380,15 @@ public abstract class AbstractAuthenticationProcessingFilter extends GenericFilt
 	 */
 	protected void unsuccessfulAuthentication(HttpServletRequest request, HttpServletResponse response,
 			AuthenticationException failed) throws IOException, ServletException {
+		// 清空 SecurityContextHolder
 		this.securityContextHolderStrategy.clearContext();
 		this.logger.trace("Failed to process authentication request", failed);
 		this.logger.trace("Cleared SecurityContextHolder");
 		this.logger.trace("Handling authentication failure");
+
+		// 执行 rememberMe 登录失败逻辑
 		this.rememberMeServices.loginFail(request, response);
+
 		this.failureHandler.onAuthenticationFailure(request, response, failed);
 	}
 
