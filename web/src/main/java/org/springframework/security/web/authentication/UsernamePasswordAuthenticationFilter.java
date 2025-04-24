@@ -51,11 +51,14 @@ public class UsernamePasswordAuthenticationFilter extends AbstractAuthentication
 
 	public static final String SPRING_SECURITY_FORM_PASSWORD_KEY = "password";
 
+	// 默认处理 /login 的 POST 请求
 	private static final AntPathRequestMatcher DEFAULT_ANT_PATH_REQUEST_MATCHER = new AntPathRequestMatcher("/login",
 			"POST");
 
+	// 默认用户名参数是 username
 	private String usernameParameter = SPRING_SECURITY_FORM_USERNAME_KEY;
 
+	// 默认密码参数是 password
 	private String passwordParameter = SPRING_SECURITY_FORM_PASSWORD_KEY;
 
 	private boolean postOnly = true;
@@ -71,17 +74,26 @@ public class UsernamePasswordAuthenticationFilter extends AbstractAuthentication
 	@Override
 	public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)
 			throws AuthenticationException {
+		// 如果只允许 POST 请求，而 requiresAuthenticationRequestMatcher 匹配的不是 POST 请求，则报错
 		if (this.postOnly && !request.getMethod().equals("POST")) {
 			throw new AuthenticationServiceException("Authentication method not supported: " + request.getMethod());
 		}
+
+		// 从请求参数中获取用户名和密码
 		String username = obtainUsername(request);
 		username = (username != null) ? username.trim() : "";
 		String password = obtainPassword(request);
 		password = (password != null) ? password : "";
+
+		// 使用用户名密码生成一个 Authentication，供 AuthenticationManager 认证
 		UsernamePasswordAuthenticationToken authRequest = UsernamePasswordAuthenticationToken.unauthenticated(username,
 				password);
+
 		// Allow subclasses to set the "details" property
+		// 默认在 Authentication 设置一个 WebAuthenticationDetails，包括 IP 地址和 sessionId
 		setDetails(request, authRequest);
+
+		// 调用 AuthenticationManager 进行身份认证
 		return this.getAuthenticationManager().authenticate(authRequest);
 	}
 

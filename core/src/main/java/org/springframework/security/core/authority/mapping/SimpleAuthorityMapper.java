@@ -30,6 +30,9 @@ import org.springframework.util.Assert;
  * the authority name and the addition of a string prefix (which defaults to {@code ROLE_}
  * ).
  *
+ * <p>
+ * 对角色名进行大小写转换，并统一添加前缀（默认 ROLE_），并添加默认角色
+ *
  * @author Luke Taylor
  * @since 3.1
  */
@@ -63,6 +66,8 @@ public final class SimpleAuthorityMapper implements GrantedAuthoritiesMapper, In
 		for (GrantedAuthority authority : authorities) {
 			mapped.add(mapAuthority(authority.getAuthority()));
 		}
+
+		// 添加一个默认的权限
 		if (this.defaultAuthority != null) {
 			mapped.add(this.defaultAuthority);
 		}
@@ -70,12 +75,15 @@ public final class SimpleAuthorityMapper implements GrantedAuthoritiesMapper, In
 	}
 
 	private GrantedAuthority mapAuthority(String name) {
+		// 统一大小写处理
 		if (this.convertToUpperCase) {
 			name = name.toUpperCase();
 		}
 		else if (this.convertToLowerCase) {
 			name = name.toLowerCase();
 		}
+
+		// 如果前缀不为空，且name不包含前缀，则默认在角色名前加一个 ROLE_
 		if (this.prefix.length() > 0 && !name.startsWith(this.prefix)) {
 			name = this.prefix + name;
 		}

@@ -61,6 +61,7 @@ public class DaoAuthenticationProvider extends AbstractUserDetailsAuthentication
 	private UserDetailsPasswordService userDetailsPasswordService;
 
 	public DaoAuthenticationProvider() {
+		// 默认情况下，会使用 DelegatingPasswordEncoder
 		this(PasswordEncoderFactories.createDelegatingPasswordEncoder());
 	}
 
@@ -77,6 +78,7 @@ public class DaoAuthenticationProvider extends AbstractUserDetailsAuthentication
 	@SuppressWarnings("deprecation")
 	protected void additionalAuthenticationChecks(UserDetails userDetails,
 			UsernamePasswordAuthenticationToken authentication) throws AuthenticationException {
+		// 校验密码是否匹配
 		if (authentication.getCredentials() == null) {
 			this.logger.debug("Failed to authenticate since no credentials provided");
 			throw new BadCredentialsException(this.messages
@@ -98,6 +100,7 @@ public class DaoAuthenticationProvider extends AbstractUserDetailsAuthentication
 	@Override
 	protected final UserDetails retrieveUser(String username, UsernamePasswordAuthenticationToken authentication)
 			throws AuthenticationException {
+		// 调用 UserDetailsService 获取用户信息
 		prepareTimingAttackProtection();
 		try {
 			UserDetails loadedUser = this.getUserDetailsService().loadUserByUsername(username);
@@ -122,9 +125,11 @@ public class DaoAuthenticationProvider extends AbstractUserDetailsAuthentication
 	@Override
 	protected Authentication createSuccessAuthentication(Object principal, Authentication authentication,
 			UserDetails user) {
+		// 判断是否需要升级密码
 		boolean upgradeEncoding = this.userDetailsPasswordService != null
 				&& this.passwordEncoder.upgradeEncoding(user.getPassword());
 		if (upgradeEncoding) {
+			// 利用 UserDetailsPasswordService 升级密码
 			String presentedPassword = authentication.getCredentials().toString();
 			String newPassword = this.passwordEncoder.encode(presentedPassword);
 			user = this.userDetailsPasswordService.updatePassword(user, newPassword);

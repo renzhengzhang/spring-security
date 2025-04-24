@@ -73,6 +73,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
  * In addition to shorter rules this will also make your access rules more readable and
  * your intentions clearer.
  *
+ * <p>
+ * 解析存在角色体系的 ROLE，用于获取从角色体系中获取所有可用的权限
+ *
  * @author Michael Mayr
  */
 public class RoleHierarchyImpl implements RoleHierarchy {
@@ -82,6 +85,15 @@ public class RoleHierarchyImpl implements RoleHierarchy {
 	/**
 	 * Raw hierarchy configuration where each line represents single or multiple level
 	 * role chain.
+	 *
+	 * <p>
+	 * 按行划分<br>
+	 * 例如：<br>
+	 * ROLE_A > ROLE_B > ROLE_C<br>
+	 * ROLE_C > ROLE_D<br>
+	 * ROLE_A oneStep 可达 ROLE_B, ROLE_C<br>
+	 * ROLE_B oneStep 可达 ROLE_C<br>
+	 * ROLE_A oneStep 不可达 ROLE_D
 	 */
 	private String roleHierarchyStringRepresentation = null;
 
@@ -89,6 +101,9 @@ public class RoleHierarchyImpl implements RoleHierarchy {
 	 * {@code rolesReachableInOneStepMap} is a Map that under the key of a specific role
 	 * name contains a set of all roles reachable from this role in 1 step (i.e. parsed
 	 * {@link #roleHierarchyStringRepresentation} grouped by the higher role)
+	 *
+	 * <p>
+	 * 距离当前 authority 一步可以获取的 authority
 	 */
 	private Map<String, Set<GrantedAuthority>> rolesReachableInOneStepMap = null;
 
@@ -96,6 +111,9 @@ public class RoleHierarchyImpl implements RoleHierarchy {
 	 * {@code rolesReachableInOneOrMoreStepsMap} is a Map that under the key of a specific
 	 * role name contains a set of all roles reachable from this role in 1 or more steps
 	 * (i.e. fully resolved hierarchy from {@link #rolesReachableInOneStepMap})
+	 *
+	 * <p>
+	 * 距离当前 authority 一步或多步可以获取的 authority
 	 */
 	private Map<String, Set<GrantedAuthority>> rolesReachableInOneOrMoreStepsMap = null;
 
@@ -125,17 +143,24 @@ public class RoleHierarchyImpl implements RoleHierarchy {
 		Set<String> processedNames = new HashSet<>();
 		for (GrantedAuthority authority : authorities) {
 			// Do not process authorities without string representation
+			// 无字符串表示的 authority 不进行处理
 			if (authority.getAuthority() == null) {
 				reachableRoles.add(authority);
 				continue;
 			}
+
 			// Do not process already processed roles
+			// 已经处理过的 authority 不进行处理
 			if (!processedNames.add(authority.getAuthority())) {
 				continue;
 			}
+
 			// Add original authority
+			// 添加原始 authority
 			reachableRoles.add(authority);
+
 			// Add roles reachable in one or more steps
+			// 添加可以获取的 authority
 			Set<GrantedAuthority> lowerRoles = this.rolesReachableInOneOrMoreStepsMap.get(authority.getAuthority());
 			if (lowerRoles == null) {
 				continue; // No hierarchy for the role
@@ -160,6 +185,7 @@ public class RoleHierarchyImpl implements RoleHierarchy {
 		this.rolesReachableInOneStepMap = new HashMap<>();
 		for (String line : this.roleHierarchyStringRepresentation.split("\n")) {
 			// Split on > and trim excessive whitespace
+			// 同一行前面的 ROLE 都是后面的 oneStep 可达
 			String[] roles = line.trim().split("\\s+>\\s+");
 			for (int i = 1; i < roles.length; i++) {
 				String higherRole = roles[i - 1];
@@ -190,7 +216,9 @@ public class RoleHierarchyImpl implements RoleHierarchy {
 		this.rolesReachableInOneOrMoreStepsMap = new HashMap<>();
 		// iterate over all higher roles from rolesReachableInOneStepMap
 		for (String roleName : this.rolesReachableInOneStepMap.keySet()) {
+			// 获取当前 authority oneStep 可达的 authority
 			Set<GrantedAuthority> rolesToVisitSet = new HashSet<>(this.rolesReachableInOneStepMap.get(roleName));
+			// 存储当前 authority oneOrMoreStep 可达的 authority
 			Set<GrantedAuthority> visitedRolesSet = new HashSet<>();
 			while (!rolesToVisitSet.isEmpty()) {
 				// take a role from the rolesToVisit set

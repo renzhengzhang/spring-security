@@ -81,16 +81,23 @@ public abstract class AbstractUserDetailsAuthenticationProvider
 
 	protected MessageSourceAccessor messages = SpringSecurityMessageSource.getAccessor();
 
+	// UserDetails 的内存缓存，默认不进行缓存
 	private UserCache userCache = new NullUserCache();
 
+	// 是否需要将 UsernamePasswordAuthenticationToken 中的 principal 设置为 username，默认 principal 为 UserDetails
 	private boolean forcePrincipalAsString = false;
 
+	// 配置当用户名是没有找到时，抛出 UsernameNotFoundException 还是 BadCredentialsException
+	// 默认抛出 BadCredentialsException
 	protected boolean hideUserNotFoundExceptions = true;
 
+	// 默认的身份认证提前校验，包括：账号是否锁定、账号是否禁用、账号是否过期
 	private UserDetailsChecker preAuthenticationChecks = new DefaultPreAuthenticationChecks();
 
+	// 默认的身份认证后校验，包括：密码是否过期
 	private UserDetailsChecker postAuthenticationChecks = new DefaultPostAuthenticationChecks();
 
+	// 对权限名进行映射处理。例如统一大小写、统一添加前缀 ROLE_、以及层级翻译
 	private GrantedAuthoritiesMapper authoritiesMapper = new NullAuthoritiesMapper();
 
 	/**
@@ -121,18 +128,27 @@ public abstract class AbstractUserDetailsAuthenticationProvider
 
 	@Override
 	public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+		// 仅支持 UsernamePasswordAuthenticationToken
 		Assert.isInstanceOf(UsernamePasswordAuthenticationToken.class, authentication,
 				() -> this.messages.getMessage("AbstractUserDetailsAuthenticationProvider.onlySupports",
 						"Only UsernamePasswordAuthenticationToken is supported"));
+
+		// 获取用户名
 		String username = determineUsername(authentication);
+
+		// 优先使用缓存
 		boolean cacheWasUsed = true;
 		UserDetails user = this.userCache.getUserFromCache(username);
+
+		// UserCache 中没有 UserDetails 则通过调用 retrieveUser() 方法获取
 		if (user == null) {
 			cacheWasUsed = false;
 			try {
+				// 子类实现
 				user = retrieveUser(username, (UsernamePasswordAuthenticationToken) authentication);
 			}
 			catch (UsernameNotFoundException ex) {
+				// 当用户名是没有找到时，判断抛出 UsernameNotFoundException 还是 BadCredentialsException
 				this.logger.debug("Failed to find user '" + username + "'");
 				if (!this.hideUserNotFoundExceptions) {
 					throw ex;
@@ -142,29 +158,47 @@ public abstract class AbstractUserDetailsAuthenticationProvider
 			}
 			Assert.notNull(user, "retrieveUser returned null - a violation of the interface contract");
 		}
+
+		// 先校验一遍，user 可能使用的是缓存中的数据
 		try {
+			// 执行身份认证提前校验，包括：账号是否锁定、账号是否禁用、账号是否过期
 			this.preAuthenticationChecks.check(user);
+			// 供子类实现，例如校验密码是否一致
 			additionalAuthenticationChecks(user, (UsernamePasswordAuthenticationToken) authentication);
 		}
 		catch (AuthenticationException ex) {
+			// 如果不是从缓存中获取的数据，则直接抛出 AuthenticationException
 			if (!cacheWasUsed) {
 				throw ex;
 			}
+
 			// There was a problem, so try again after checking
 			// we're using latest data (i.e. not from the cache)
+			// 获取最新的 UserDetails
 			cacheWasUsed = false;
 			user = retrieveUser(username, (UsernamePasswordAuthenticationToken) authentication);
+
+			// 默认的身份认证后校验，包括：密码是否过期
 			this.preAuthenticationChecks.check(user);
+			// 供子类实现，例如校验密码是否一致
 			additionalAuthenticationChecks(user, (UsernamePasswordAuthenticationToken) authentication);
 		}
+
+		// 执行默认的身份认证后校验
 		this.postAuthenticationChecks.check(user);
+
+		// 如果是新获取的 UserDetails 需要放入缓存
 		if (!cacheWasUsed) {
 			this.userCache.putUserInCache(user);
 		}
+
+		// 判断是否需要将 UsernamePasswordAuthenticationToken 中的 principal 设置为 UserDetails 的 username，而不是 UserDetails
 		Object principalToReturn = user;
 		if (this.forcePrincipalAsString) {
 			principalToReturn = user.getUsername();
 		}
+
+		// 创建一个认证成功的 Authentication，包括：principal, credentials, authorities。
 		return createSuccessAuthentication(principalToReturn, authentication, user);
 	}
 
@@ -193,6 +227,9 @@ public abstract class AbstractUserDetailsAuthenticationProvider
 		// so subsequent attempts are successful even with encoded passwords.
 		// Also ensure we return the original getDetails(), so that future
 		// authentication events after cache expiry contain the details
+
+		// 创建一个认证成功的 Authentication，包括：principal, credentials, authorities。
+		// 其中 authorities 可以通过 authoritiesMapper 转换
 		UsernamePasswordAuthenticationToken result = UsernamePasswordAuthenticationToken.authenticated(principal,
 				authentication.getCredentials(), this.authoritiesMapper.mapAuthorities(user.getAuthorities()));
 		result.setDetails(authentication.getDetails());
@@ -314,6 +351,7 @@ public abstract class AbstractUserDetailsAuthenticationProvider
 		this.authoritiesMapper = authoritiesMapper;
 	}
 
+	// 默认的身份认证提前校验，包括：账号是否锁定、账号是否禁用、账号是否过期
 	private class DefaultPreAuthenticationChecks implements UserDetailsChecker {
 
 		@Override
@@ -340,6 +378,7 @@ public abstract class AbstractUserDetailsAuthenticationProvider
 
 	}
 
+	// 默认的身份认证后校验，包括：密码是否过期
 	private class DefaultPostAuthenticationChecks implements UserDetailsChecker {
 
 		@Override

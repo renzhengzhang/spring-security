@@ -99,6 +99,7 @@ public class ProviderManager implements AuthenticationManager, MessageSourceAwar
 
 	private AuthenticationManager parent;
 
+	// 默认需要在认证成功后清除 Authentication 中的认证信息
 	private boolean eraseCredentialsAfterAuthentication = true;
 
 	/**
@@ -170,7 +171,9 @@ public class ProviderManager implements AuthenticationManager, MessageSourceAwar
 		Authentication parentResult = null;
 		int currentPosition = 0;
 		int size = this.providers.size();
+
 		for (AuthenticationProvider provider : getProviders()) {
+			// 判断 provider 是否支持该种 Authentication
 			if (!provider.supports(toTest)) {
 				continue;
 			}
@@ -179,22 +182,32 @@ public class ProviderManager implements AuthenticationManager, MessageSourceAwar
 						provider.getClass().getSimpleName(), ++currentPosition, size));
 			}
 			try {
+				// 使用 provider 进行身份认证
 				result = provider.authenticate(authentication);
+
+				// 只要一种 provider 认证成功，则不再执行后续 provider
 				if (result != null) {
+					// 如果 provider 返回的 authentication Details 为空，将认证前的 Authentication Details 拷贝到认证后的 Authentication
+					// 参见：UsernamePasswordAuthenticationFilter.setDetails
+					// AbstractUserDetailsAuthenticationProvider.createSuccessAuthentication 时，也会处理
 					copyDetails(authentication, result);
 					break;
 				}
 			}
 			catch (AccountStatusException | InternalAuthenticationServiceException ex) {
+				// 如果是因为账号状态异常（封禁、过期等）或内部服务异常，则立即发布身份认证失败错误，并抛出异常
 				prepareException(ex, authentication);
 				// SEC-546: Avoid polling additional providers if auth failure is due to
 				// invalid account status
 				throw ex;
 			}
 			catch (AuthenticationException ex) {
+				// 其他认证失败异常，则记录异常信息
 				lastException = ex;
 			}
 		}
+
+		// 到这里说明前面的 provider 均认证失败（不支持或者抛出了 AuthenticationException），尝试使用 parent provider 认证
 		if (result == null && this.parent != null) {
 			// Allow the parent to try.
 			try {
@@ -208,20 +221,27 @@ public class ProviderManager implements AuthenticationManager, MessageSourceAwar
 				// handled the request
 			}
 			catch (AuthenticationException ex) {
+				// 记录异常
 				parentException = ex;
 				lastException = ex;
 			}
 		}
+
+		// result 不为 null，说明认证成功
 		if (result != null) {
+			// 默认需要在认证成功后清除 Authentication 中的认证信息
 			if (this.eraseCredentialsAfterAuthentication && (result instanceof CredentialsContainer)) {
 				// Authentication is complete. Remove credentials and other secret data
 				// from authentication
 				((CredentialsContainer) result).eraseCredentials();
 			}
+
 			// If the parent AuthenticationManager was attempted and successful then it
 			// will publish an AuthenticationSuccessEvent
 			// This check prevents a duplicate AuthenticationSuccessEvent if the parent
 			// AuthenticationManager already published it
+			// 如果不是 parent ProviderManager 认证成功，则发布认证成功事件
+			// 因为 parent ProviderManager 认证成功，会自己发布认证成功事件
 			if (parentResult == null) {
 				this.eventPublisher.publishAuthenticationSuccess(result);
 			}
@@ -229,6 +249,7 @@ public class ProviderManager implements AuthenticationManager, MessageSourceAwar
 			return result;
 		}
 
+		// 走到这里说明认证失败，没找到支持的 provider
 		// Parent was null, or didn't authenticate (or throw an exception).
 		if (lastException == null) {
 			lastException = new ProviderNotFoundException(this.messages.getMessage("ProviderManager.providerNotFound",
@@ -238,9 +259,12 @@ public class ProviderManager implements AuthenticationManager, MessageSourceAwar
 		// publish an AbstractAuthenticationFailureEvent
 		// This check prevents a duplicate AbstractAuthenticationFailureEvent if the
 		// parent AuthenticationManager already published it
+		// 如果不是 parent ProviderManager 认证失败，则发布认证失败事件
 		if (parentException == null) {
 			prepareException(lastException, authentication);
 		}
+
+		// 抛出认证失败异常
 		throw lastException;
 	}
 

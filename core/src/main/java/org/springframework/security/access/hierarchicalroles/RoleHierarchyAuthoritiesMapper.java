@@ -22,6 +22,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper;
 
 /**
+ * 解析存在角色体系的 ROLE，用于获取从角色体系中获取所有可用的权限
+ *
  * @author Luke Taylor
  */
 public class RoleHierarchyAuthoritiesMapper implements GrantedAuthoritiesMapper {
