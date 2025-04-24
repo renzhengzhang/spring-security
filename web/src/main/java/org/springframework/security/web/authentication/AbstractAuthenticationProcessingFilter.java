@@ -137,13 +137,25 @@ public abstract class AbstractAuthenticationProcessingFilter extends GenericFilt
 	private boolean allowSessionCreation = true;
 
 	// 身份认证成功处理器
+	// - SimpleUrlAuthenticationSuccessHandler
+	//   认证成功之后进行链接跳转，支持指定 targetUrl
 	// - SavedRequestAwareAuthenticationSuccessHandler
 	// 	 认证成功之后进行链接跳转，如果有 CachedRequest，则跳转至 CachedRequest，默认跳转至根路径或者请求参数中的目标路径
+	// - ForwardAuthenticationSuccessHandler
+	//   认证成功之后，转发至 forwardUrl
 	private AuthenticationSuccessHandler successHandler = new SavedRequestAwareAuthenticationSuccessHandler();
 
 	// 身份认证失败处理器
 	// - SimpleUrlAuthenticationFailureHandler
-	//   认证失败之后进行链接跳转，若配置了 failureUrl，则跳转至 failureUrl，否则在请求 session 中设置错误信息
+	//   认证失败之后进行链接跳转，若配置了 failureUrl，则重定向（或转发）至 failureUrl，否则在请求 session 中设置错误信息
+	// - ForwardAuthenticationFailureHandler
+	//   身份认证失败之后，在请求属性中设置 SPRING_SECURITY_LAST_EXCEPTION 错误信息，并转发至 forwardUrl
+	// - AuthenticationEntryPointFailureHandler
+	//   依据是否需要抛出 AuthenticationServiceException 异常，来判断是否交由 AuthenticationEntryPoint 处理
+	// - ExceptionMappingAuthenticationFailureHandler
+	//   身份认证失败之后，根据 AuthenticationException 匹配对应的 failureUrl
+	// - DelegatingAuthenticationFailureHandler
+	//   支持按照 AuthenticationException 类名匹配 AuthenticationFailureHandler，未匹配则使用默认
 	private AuthenticationFailureHandler failureHandler = new SimpleUrlAuthenticationFailureHandler();
 
 	private SecurityContextRepository securityContextRepository = new RequestAttributeSecurityContextRepository();

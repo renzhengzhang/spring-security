@@ -39,6 +39,9 @@ import org.springframework.security.web.AuthenticationEntryPoint;
  * The <code>commence</code> method will always return an
  * <code>HttpServletResponse.SC_FORBIDDEN</code> (403 error).
  *
+ * <p>
+ * 身份认证失败时，返回一个固定的 HttpStatus 403 禁止访问错误，并跳转至错误页面
+ *
  * @author Luke Taylor
  * @author Ruud Senden
  * @since 2.0

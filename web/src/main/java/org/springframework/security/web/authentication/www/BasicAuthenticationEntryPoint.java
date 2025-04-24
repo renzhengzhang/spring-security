@@ -38,6 +38,9 @@ import org.springframework.util.Assert;
  * method below. This will indicate to the browser its credentials are no longer
  * authorized, causing it to prompt the user to login again.
  *
+ * <p>
+ * 身份认证失败之后，在响应头中添加 WWW-Authenticate 响应头，并设置响应状态码为 401
+ *
  * @author Ben Alex
  */
 public class BasicAuthenticationEntryPoint implements AuthenticationEntryPoint, InitializingBean {

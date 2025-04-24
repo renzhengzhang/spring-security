@@ -32,6 +32,10 @@ import org.springframework.util.Assert;
  * Forward Authentication Failure Handler
  * </p>
  *
+ * <p>
+ * 身份认证失败之后，在请求属性中设置 SPRING_SECURITY_LAST_EXCEPTION 错误信息，并转发至 forwardUrl
+ * </p>
+ *
  * @author Shazin Sadakath
  * @since 4.1
  */

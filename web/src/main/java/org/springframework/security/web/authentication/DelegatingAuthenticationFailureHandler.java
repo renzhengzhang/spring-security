@@ -34,6 +34,9 @@ import org.springframework.util.Assert;
  * {@link #onAuthenticationFailure(HttpServletRequest, HttpServletResponse, AuthenticationException)}
  * .
  *
+ * <p>
+ * 支持按照 AuthenticationException 类名匹配 AuthenticationFailureHandler，未匹配则使用默认的 AuthenticationFailureHandler
+ *
  * @author Kazuki Shimizu
  * @since 4.0
  */

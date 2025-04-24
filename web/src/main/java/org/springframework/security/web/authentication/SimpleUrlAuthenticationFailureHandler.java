@@ -42,8 +42,9 @@ import org.springframework.util.Assert;
  * <p>
  * If the {@code useForward} property is set, a {@code RequestDispatcher.forward} call
  * will be made to the destination instead of a redirect.
+ * 
  * <p>
- * 用于处理认证失败的请求，如果设置了 defaultFailureUrl 属性，则重定向到该属性的值，否则发送错误响应。
+ * 用于处理认证失败的请求，如果设置了 defaultFailureUrl 属性，则重定向（或转发）到该属性的值，否则发送错误响应。
  * <ul>
  *     <li>如果 forwardToDestination，则 forward to defaultFailureUrl，且在请求属性中设置错误信息</li>
  *     <li>否则，则 redirect to defaultFailureUrl，且在 session 中设置错误信息</li>

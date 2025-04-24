@@ -38,6 +38,9 @@ import org.springframework.util.Assert;
  * The map of exception names to URLs should be injected by setting the
  * <tt>exceptionMappings</tt> property.
  *
+ * <p>
+ * 支持按照 AuthenticationException 类名匹配跳转地址，未匹配到默认使用父类的 defaultFailureUrl
+ *
  * @author Luke Taylor
  * @since 3.0
  */

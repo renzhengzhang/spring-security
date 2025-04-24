@@ -29,6 +29,17 @@ import org.springframework.util.Assert;
  * response. Useful for JavaScript clients which cannot use Basic authentication since the
  * browser intercepts the response.
  *
+ * <p>
+ * 身份认证失败时，返回一个固定的 HttpStatus
+ * <p>
+ * 用于 JavaScript 客户端，无法使用 BASIC 认证，因为浏览器拦截响应。
+ * <p>
+ * 在浏览器环境中，使用基本身份验证（Basic Authentication）时，浏览器会自动处理 HTTP 响应中的 WWW-Authenticate 头部。
+ * 具体来说，当服务器返回状态码 401（未授权）并带有 WWW-Authenticate 头部时，浏览器会自动弹出一个对话框，要求用户输入用户名和密码。
+ * 这种行为是浏览器内置的，并且无法通过 JavaScript 客户端进行控制或拦截。
+ * <p>
+ * 可以参见<a href="https://juejin.cn/post/7447881845860368420">这篇博客</a>。
+ *
  * @author Rob Winch
  * @since 4.0
  */

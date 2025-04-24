@@ -29,7 +29,9 @@ import org.springframework.util.Assert;
 /**
  * <p>
  * Forward Authentication Success Handler
- * </p>
+ *
+ * <p>
+ * 认证成功之后，转发至 forwardUrl
  *
  * @author Shazin Sadakath
  * @since 4.1

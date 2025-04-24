@@ -90,6 +90,8 @@ public class DigestAuthenticationEntryPoint implements AuthenticationEntryPoint,
 		if (authException instanceof NonceExpiredException) {
 			authenticateHeader = authenticateHeader + ", stale=\"true\"";
 		}
+
+		// 发送 WWW-Authenticate 响应头，返回新的 nonce
 		logger.debug(LogMessage.format("WWW-Authenticate header sent to user agent: %s", authenticateHeader));
 		response.addHeader("WWW-Authenticate", authenticateHeader);
 		response.sendError(HttpStatus.UNAUTHORIZED.value(), HttpStatus.UNAUTHORIZED.getReasonPhrase());

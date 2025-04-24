@@ -57,6 +57,9 @@ import org.springframework.util.Assert;
  * This example uses the {@link RequestMatcherEditor} which creates a
  * {@link ELRequestMatcher} instances for the map keys.
  *
+ * <p>
+ * 支持按照 RequestMatcher 匹配 AuthenticationEntryPoint，未匹配到默认使用 defaultEntryPoint
+ *
  * @author Mike Wiesner
  * @since 3.0.2
  */

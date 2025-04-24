@@ -57,6 +57,8 @@ import org.springframework.util.StringUtils;
  * {@link PortMapper} is consulted to determine the HTTP:HTTPS pairs. The value of
  * {@code forceHttps} will have no effect if an absolute URL is used.
  *
+ * <p>
+ * 用于身份认证失败之后，跳转或者转发至登录页。支持配置是否强制 https
  * @author Ben Alex
  * @author colin sampaleanu
  * @author Omri Spector
@@ -71,10 +73,13 @@ public class LoginUrlAuthenticationEntryPoint implements AuthenticationEntryPoin
 
 	private PortResolver portResolver = new PortResolverImpl();
 
+	// 表单登录 url
 	private String loginFormUrl;
 
+	// 默认不强制 https
 	private boolean forceHttps = false;
 
+	// 默认不使用转发
 	private boolean useForward = false;
 
 	private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
@@ -118,12 +123,15 @@ public class LoginUrlAuthenticationEntryPoint implements AuthenticationEntryPoin
 	@Override
 	public void commence(HttpServletRequest request, HttpServletResponse response,
 			AuthenticationException authException) throws IOException, ServletException {
+		// 如果不使用转发（默认不使用），则跳转至登录页
 		if (!this.useForward) {
 			// redirect to login page. Use https if forceHttps true
 			String redirectUrl = buildRedirectUrlToLoginPage(request, response, authException);
 			this.redirectStrategy.sendRedirect(request, response, redirectUrl);
 			return;
 		}
+
+		// 如果当前请求是 http，且强制使用 https，则跳转至 https，不使用转发
 		String redirectUrl = null;
 		if (this.forceHttps && "http".equals(request.getScheme())) {
 			// First redirect the current request to HTTPS. When that request is received,
@@ -134,6 +142,8 @@ public class LoginUrlAuthenticationEntryPoint implements AuthenticationEntryPoin
 			this.redirectStrategy.sendRedirect(request, response, redirectUrl);
 			return;
 		}
+
+		// 进行转发逻辑
 		String loginForm = determineUrlToUseForThisRequest(request, response, authException);
 		logger.debug(LogMessage.format("Server side forward to: %s", loginForm));
 		RequestDispatcher dispatcher = request.getRequestDispatcher(loginForm);
@@ -141,12 +151,16 @@ public class LoginUrlAuthenticationEntryPoint implements AuthenticationEntryPoin
 		return;
 	}
 
+	// 构建登录页 url
 	protected String buildRedirectUrlToLoginPage(HttpServletRequest request, HttpServletResponse response,
 			AuthenticationException authException) {
+		// 如果已经是完整 url, 则直接返回
 		String loginForm = determineUrlToUseForThisRequest(request, response, authException);
 		if (UrlUtils.isAbsoluteUrl(loginForm)) {
 			return loginForm;
 		}
+
+		// 构造 url
 		int serverPort = this.portResolver.getServerPort(request);
 		String scheme = request.getScheme();
 		RedirectUrlBuilder urlBuilder = new RedirectUrlBuilder();
