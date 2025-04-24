@@ -41,6 +41,9 @@ import org.springframework.util.Assert;
  * Will also remove the {@link Authentication} from the current {@link SecurityContext} if
  * {@link #clearAuthentication} is set to true (default).
  *
+ * <p>
+ * 支持按配置失效 HttpSession，并清空 SecurityContext
+ *
  * @author Ben Alex
  * @author Rob Winch
  */
@@ -51,10 +54,13 @@ public class SecurityContextLogoutHandler implements LogoutHandler {
 	private SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
 		.getContextHolderStrategy();
 
+	// 默认需要失效 HttpSession
 	private boolean invalidateHttpSession = true;
 
+	// 默认需要清理 Authentication
 	private boolean clearAuthentication = true;
 
+	// 默认使用 HttpSessionSecurityContextRepository
 	private SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
 
 	/**
@@ -66,6 +72,8 @@ public class SecurityContextLogoutHandler implements LogoutHandler {
 	@Override
 	public void logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
 		Assert.notNull(request, "HttpServletRequest required");
+
+		// 按配置失效 HttpSession，默认需要失效
 		if (this.invalidateHttpSession) {
 			HttpSession session = request.getSession(false);
 			if (session != null) {
@@ -75,11 +83,16 @@ public class SecurityContextLogoutHandler implements LogoutHandler {
 				}
 			}
 		}
+
+		// 按配置清理 Authentication
 		SecurityContext context = this.securityContextHolderStrategy.getContext();
 		this.securityContextHolderStrategy.clearContext();
 		if (this.clearAuthentication) {
 			context.setAuthentication(null);
 		}
+
+		// 在 SecurityContextRepository 保存空 SecurityContext
+		// HttpSessionSecurityContextRepository 在保存 Empty SecurityContext 时，会移除 SecurityContext
 		SecurityContext emptyContext = this.securityContextHolderStrategy.createEmptyContext();
 		this.securityContextRepository.saveContext(emptyContext, request, response);
 	}

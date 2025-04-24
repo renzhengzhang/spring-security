@@ -61,6 +61,9 @@ import org.springframework.web.filter.GenericFilterBean;
  * in <code>web.xml</code>.
  * </p>
  *
+ * <p>
+ * 用于处理同时在线 Session 数量限制导致 Session 过期的问题
+ *
  * @author Ben Alex
  * @author Eddú Meléndez
  * @author Marten Deinum
@@ -77,8 +80,10 @@ public class ConcurrentSessionFilter extends GenericFilterBean {
 
 	private RedirectStrategy redirectStrategy;
 
+	// 默认情况下，使用 SecurityContextLogoutHandler，将失效 HttpSession 并清空 SecurityContext
 	private LogoutHandler handlers = new CompositeLogoutHandler(new SecurityContextLogoutHandler());
 
+	// Session 过期执行策略
 	private SessionInformationExpiredStrategy sessionInformationExpiredStrategy;
 
 	public ConcurrentSessionFilter(SessionRegistry sessionRegistry) {
@@ -102,6 +107,8 @@ public class ConcurrentSessionFilter extends GenericFilterBean {
 				() -> expiredUrl + " isn't a valid redirect URL");
 		this.expiredUrl = expiredUrl;
 		this.sessionRegistry = sessionRegistry;
+
+		// 默认重定向至 expiredUrl，这种方式已经不建议使用了
 		this.sessionInformationExpiredStrategy = (event) -> {
 			HttpServletRequest request = event.getRequest();
 			HttpServletResponse response = event.getResponse();
@@ -133,17 +140,24 @@ public class ConcurrentSessionFilter extends GenericFilterBean {
 			throws IOException, ServletException {
 		HttpSession session = request.getSession(false);
 		if (session != null) {
+			// 检测 HttpSession 是否过期
+			// ConcurrentSessionControlAuthenticationStrategy 会在登录时调用，若超过最大登录数量，最早登录时间的 HttpSession 会被过期
 			SessionInformation info = this.sessionRegistry.getSessionInformation(session.getId());
 			if (info != null) {
+				// 若过期，先执行 LogoutHandler，再执行过期策略：响应体中输出错误信息或重定向至固定地址
 				if (info.isExpired()) {
 					// Expired - abort processing
 					this.logger.debug(LogMessage
 						.of(() -> "Requested session ID " + request.getRequestedSessionId() + " has expired."));
+					// 执行 LogoutHandler
 					doLogout(request, response);
+					// 执行 Session 过期策略
 					this.sessionInformationExpiredStrategy
 						.onExpiredSessionDetected(new SessionInformationExpiredEvent(info, request, response));
 					return;
 				}
+
+				// 若未过期，更新 HttpSession 的最后请求时间
 				// Non-expired - update last request date/time
 				this.sessionRegistry.refreshLastRequest(info.getSessionId());
 			}
@@ -211,6 +225,9 @@ public class ConcurrentSessionFilter extends GenericFilterBean {
 	/**
 	 * A {@link SessionInformationExpiredStrategy} that writes an error message to the
 	 * response body.
+	 *
+	 * <p>
+	 * 在响应体中写入 HttpSession 过期信息
 	 *
 	 * @author Rob Winch
 	 * @since 4.2

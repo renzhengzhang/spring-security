@@ -24,6 +24,9 @@ import jakarta.servlet.ServletException;
  * Determines the behaviour of the {@code ConcurrentSessionFilter} when an expired session
  * is detected in the {@code ConcurrentSessionFilter}.
  *
+ * <p>
+ * 用于 ConcurrentSessionFilter 将检测到过期会话时的行为时，执行的策略
+ *
  * @author Marten Deinum
  * @author Rob Winch
  * @since 4.2.0

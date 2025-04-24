@@ -30,6 +30,8 @@ import org.springframework.util.Assert;
  * Performs a redirect to a fixed URL when an expired session is detected by the
  * {@code ConcurrentSessionFilter}.
  *
+ * <p>
+ * 用于 ConcurrentSessionFilter 将检测到过期会话时的行为时，执行的策略，重定向至固定 URL
  * @author Marten Deinum
  * @since 4.2.0
  */
