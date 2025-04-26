@@ -28,6 +28,9 @@ import org.springframework.security.access.AccessDeniedException;
  * Used by {@link ExceptionTranslationFilter} to handle an
  * <code>AccessDeniedException</code>.
  *
+ * <p>
+ * 用于 {@link ExceptionTranslationFilter} 处理 {@link AccessDeniedException}
+ *
  * @author Ben Alex
  */
 public interface AccessDeniedHandler {

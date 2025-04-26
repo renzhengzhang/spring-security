@@ -78,6 +78,14 @@ import org.springframework.web.filter.GenericFilterBean;
  * authenticated. The default implementation is {@link HttpSessionRequestCache}.</li>
  * </ul>
  *
+ * <p>
+ * 捕获 AuthenticationException 或 AccessDeniedException
+ * <ul>
+ *     <li>AuthenticationException：使用 AuthenticationEntryPoint 处理</li>
+ *     <li>AccessDeniedException：AnonymousAuthenticationToken 或 RememberMeAuthenticationToken 使用 AuthenticationEntryPoint 处理</li>
+ *     <li>AccessDeniedException：其他 Authentication 使用 AccessDeniedHandler 处理</li>
+ * </ul>
+ *
  * @author Ben Alex
  * @author colin sampaleanu
  */
@@ -86,14 +94,19 @@ public class ExceptionTranslationFilter extends GenericFilterBean implements Mes
 	private SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
 		.getContextHolderStrategy();
 
+	// 用于处理 AccessDeniedException
+	// 1. AccessDeniedHandlerImpl 转发至错误页，可配置 errorPage，未配置则 sendError
 	private AccessDeniedHandler accessDeniedHandler = new AccessDeniedHandlerImpl();
 
+	// 用于处理 AuthenticationException
 	private AuthenticationEntryPoint authenticationEntryPoint;
 
+	// 用于判断是否是 Anonymous 还是 RememberMe Authentication
 	private AuthenticationTrustResolver authenticationTrustResolver = new AuthenticationTrustResolverImpl();
 
 	private ThrowableAnalyzer throwableAnalyzer = new DefaultThrowableAnalyzer();
 
+	// 用于保存请求，用于身份认证成功之后跳转
 	private final RequestCache requestCache;
 
 	protected MessageSourceAccessor messages = SpringSecurityMessageSource.getAccessor();
@@ -122,6 +135,7 @@ public class ExceptionTranslationFilter extends GenericFilterBean implements Mes
 
 	private void doFilter(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
+		// 捕获后续 Filter 中出现的异常
 		try {
 			chain.doFilter(request, response);
 		}
@@ -130,6 +144,7 @@ public class ExceptionTranslationFilter extends GenericFilterBean implements Mes
 		}
 		catch (Exception ex) {
 			// Try to extract a SpringSecurityException from the stacktrace
+			// 从栈中获取 AuthenticationException 或 AccessDeniedException。如果不是这两种 Exception，则抛出异常
 			Throwable[] causeChain = this.throwableAnalyzer.determineCauseChain(ex);
 			RuntimeException securityException = (AuthenticationException) this.throwableAnalyzer
 				.getFirstThrowableOfType(AuthenticationException.class, causeChain);
@@ -144,6 +159,8 @@ public class ExceptionTranslationFilter extends GenericFilterBean implements Mes
 				throw new ServletException("Unable to handle the Spring Security Exception "
 						+ "because the response is already committed.", ex);
 			}
+
+			// 处理 AuthenticationException 或 AccessDeniedException
 			handleSpringSecurityException(request, response, chain, securityException);
 		}
 	}
@@ -189,6 +206,12 @@ public class ExceptionTranslationFilter extends GenericFilterBean implements Mes
 			FilterChain chain, AccessDeniedException exception) throws ServletException, IOException {
 		Authentication authentication = this.securityContextHolderStrategy.getContext().getAuthentication();
 		boolean isAnonymous = this.authenticationTrustResolver.isAnonymous(authentication);
+
+		// 若是 AnonymousAuthenticationToken 或 RememberMeAuthenticationToken 遇到 AccessDeniedException，
+		// 则认为是 credentials are not sufficiently trusted，需要： SecurityContext 中的 Authentication
+		// 1. 清空 SecurityContext 中的 Authentication
+		// 2. 将上前请求缓存到 RequestCache 中，供认证成功之后跳转回当前请求路径
+		// 3. 调用 AuthenticationEntryPoint 的 commence 方法，跳转到登录页面或者返回错误信息
 		if (isAnonymous || this.authenticationTrustResolver.isRememberMe(authentication)) {
 			if (logger.isTraceEnabled()) {
 				logger.trace(LogMessage.format("Sending %s to authentication entry point since access is denied",
@@ -199,6 +222,8 @@ public class ExceptionTranslationFilter extends GenericFilterBean implements Mes
 							this.messages.getMessage("ExceptionTranslationFilter.insufficientAuthentication",
 									"Full authentication is required to access this resource")));
 		}
+
+		// 若是 Authenticated AuthenticationToken 遇到 AccessDeniedException，则需要使用 AccessDeniedHandler 处理
 		else {
 			if (logger.isTraceEnabled()) {
 				logger.trace(
@@ -213,9 +238,15 @@ public class ExceptionTranslationFilter extends GenericFilterBean implements Mes
 			AuthenticationException reason) throws ServletException, IOException {
 		// SEC-112: Clear the SecurityContextHolder's Authentication, as the
 		// existing Authentication is no longer considered valid
+		// 1. 清空 SecurityContext 中的 Authentication
 		SecurityContext context = this.securityContextHolderStrategy.createEmptyContext();
 		this.securityContextHolderStrategy.setContext(context);
+
+		// 2. 将请求缓存到 RequestCache 中，供认证成功之后跳转回当前请求路径
+		//    org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler 中会用到
 		this.requestCache.saveRequest(request, response);
+
+		// 3. 使用 AuthenticationEntryPoint 跳转到登录页面或者返回错误信息
 		this.authenticationEntryPoint.commence(request, response, reason);
 	}
 

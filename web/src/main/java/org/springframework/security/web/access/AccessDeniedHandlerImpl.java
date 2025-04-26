@@ -28,6 +28,7 @@ import org.springframework.core.log.LogMessage;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.WebAttributes;
+import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
 import org.springframework.util.Assert;
 
 /**
@@ -40,6 +41,10 @@ import org.springframework.util.Assert;
  * view (or a tag library or macro) wishes to access the
  * <code>SecurityContextHolder</code>. The request scope will also be populated with the
  * exception itself, available from the key {@link WebAttributes#ACCESS_DENIED_403}.
+ *
+ * <p>
+ * 用于处理 AccessDeniedException，跳转或转发至错误页
+ * 类似于 {@link SimpleUrlAuthenticationFailureHandler#onAuthenticationFailure}
  *
  * @author Ben Alex
  */
@@ -56,11 +61,15 @@ public class AccessDeniedHandlerImpl implements AccessDeniedHandler {
 			logger.trace("Did not write to response since already committed");
 			return;
 		}
+
+		// 如果没有配置 errorPage，则跳转至错误页
 		if (this.errorPage == null) {
 			logger.debug("Responding with 403 status code");
 			response.sendError(HttpStatus.FORBIDDEN.value(), HttpStatus.FORBIDDEN.getReasonPhrase());
 			return;
 		}
+
+		// 若配置了 errorPage，则转发至 errorPage，并在 request 属性中设置异常信息
 		// Put exception into request scope (perhaps of use to a view)
 		request.setAttribute(WebAttributes.ACCESS_DENIED_403, accessDeniedException);
 		// Set the 403 status code.
