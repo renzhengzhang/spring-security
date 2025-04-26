@@ -44,6 +44,9 @@ import org.springframework.web.filter.GenericFilterBean;
  * Detects if there is no {@code Authentication} object in the
  * {@code SecurityContextHolder}, and populates it with one if needed.
  *
+ * <p>
+ * 若当前 SecurityContext 中没有 Authentication，则填充 AnonymousAuthenticationToken
+ *
  * @author Ben Alex
  * @author Luke Taylor
  * @author Evgeniy Cheban
@@ -94,6 +97,11 @@ public class AnonymousAuthenticationFilter extends GenericFilterBean implements 
 	@Override
 	public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
 			throws IOException, ServletException {
+		// 若当前 SecurityContext 中没有 Authentication，则填充 AnonymousAuthenticationToken
+		// 其中：
+		//     key: 		每次启动时生成一个 UUID，参见 AnonymousConfigurer.init
+		//     principal: 	默认为 anonymousUser
+		//     authorities: 默认为 ["ROLE_ANONYMOUS"]
 		Supplier<SecurityContext> deferredContext = this.securityContextHolderStrategy.getDeferredContext();
 		this.securityContextHolderStrategy
 			.setDeferredContext(defaultWithAnonymous((HttpServletRequest) req, deferredContext));
@@ -109,6 +117,7 @@ public class AnonymousAuthenticationFilter extends GenericFilterBean implements 
 	}
 
 	private SecurityContext defaultWithAnonymous(HttpServletRequest request, SecurityContext currentContext) {
+		// 当且仅当当前 SecurityContext 中没有 Authentication 时，才填充 AnonymousAuthenticationToken
 		Authentication currentAuthentication = currentContext.getAuthentication();
 		if (currentAuthentication == null) {
 			Authentication anonymous = createAuthentication(request);
