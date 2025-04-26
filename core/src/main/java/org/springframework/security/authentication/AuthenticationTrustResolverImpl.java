@@ -27,6 +27,10 @@ import org.springframework.security.core.Authentication;
  * If {@link #anonymousClass} or {@link #rememberMeClass} is <code>null</code>, the
  * corresponding method will always return <code>false</code>.
  *
+ * <p>
+ * 判断是否是匿名 Authentication
+ * 判断是否是 RememberMe 请求
+ *
  * @author Ben Alex
  */
 public class AuthenticationTrustResolverImpl implements AuthenticationTrustResolver {
@@ -45,6 +49,7 @@ public class AuthenticationTrustResolverImpl implements AuthenticationTrustResol
 
 	@Override
 	public boolean isAnonymous(Authentication authentication) {
+		// 当 Authentication 不为空且为 AnonymousAuthenticationToken (默认)时，才是匿名请求
 		if ((this.anonymousClass == null) || (authentication == null)) {
 			return false;
 		}
@@ -53,6 +58,7 @@ public class AuthenticationTrustResolverImpl implements AuthenticationTrustResol
 
 	@Override
 	public boolean isRememberMe(Authentication authentication) {
+		// 当 Authentication 不为空且为 RememberMeAuthenticationToken（默认）时，才是 RememberMe 请求
 		if ((this.rememberMeClass == null) || (authentication == null)) {
 			return false;
 		}

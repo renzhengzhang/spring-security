@@ -63,6 +63,17 @@ import org.springframework.web.filter.GenericFilterBean;
  * {@link Runnable}.</li>
  * </ul>
  *
+ * <p>
+ * 使用 Servlet3SecurityContextHolderAwareRequestWrapper 对 HttpServletRequest 进行增强，提供如下能力：
+ * 1. 为 HttpServletRequest 提供获取 SecurityContextHolder 中 Authentication 对象的能力，用于获取当前用户 principle，以及判断是否有对应角色。
+ *    注意：这里不会读取 AnonymousAuthenticationToken，也无法获取 AnonymousAuthenticationToken 的角色。
+ * 2. 支持 HttpServletRequest 在调用 HttpServletRequest#login(String, String) 时，
+ * 	  使用 AuthenticationManager 进行身份认证
+ * 3. 支持 HttpServletRequest 在调用 HttpServletRequest#authenticate(HttpServletResponse) 时，
+ *    使用 AuthenticationEntryPoint 进行未进行身份认证处理
+ * 4. 支持 HttpServletRequest 在调用 HttpServletRequest#logout() 时，使用 LogoutHandler 进行用户注销
+ * 5. 支持在异步条件，运行 AsyncContext.start(Runnable) 时，在 SecurityContextHolder 中获取到正确的 SecurityContext
+ *
  * @author Orlando Garcia Carmona
  * @author Ben Alex
  * @author Luke Taylor
@@ -84,6 +95,7 @@ public class SecurityContextHolderAwareRequestFilter extends GenericFilterBean {
 
 	private List<LogoutHandler> logoutHandlers;
 
+	// 判断 Authentication 是否是匿名、是否是 RememberMe
 	private AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
 	private SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();

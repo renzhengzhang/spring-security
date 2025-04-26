@@ -69,6 +69,17 @@ import org.springframework.util.CollectionUtils;
  * {@link Runnable}.</li>
  * </ul>
  *
+ * <p>
+ *  对原有的 HttpServletRequest 进行了如下的增强：
+ *  1. 支持在异步条件，运行 AsyncContext.start(Runnable) 时，在 SecurityContextHolder 中获取到正确的 SecurityContext
+ * 	2. 支持 HttpServletRequest 在调用 HttpServletRequest#login(String, String) 时，
+ * 	   使用 AuthenticationManager 进行身份认证
+ * 	3. 支持 HttpServletRequest 在调用 HttpServletRequest#authenticate(HttpServletResponse) 时，
+ * 	   使用 AuthenticationEntryPoint 进行未进行身份认证处理
+ * 	4. 支持 HttpServletRequest 在调用 HttpServletRequest#logout() 时，使用 LogoutHandler 进行用户注销
+ * 	5. 为 HttpServletRequest 提供获取 SecurityContextHolder 中 Authentication 对象的能力。
+ *     用于获取当前用户 principle，以及判断是否有对应角色。
+ *  注意：这里不会读取 AnonymousAuthenticationToken，也无法获取 AnonymousAuthenticationToken 的角色。
  * @author Rob Winch
  * @see SecurityContextHolderAwareRequestFilter
  * @see Servlet3SecurityContextHolderAwareRequestWrapper
@@ -182,6 +193,12 @@ final class HttpServlet3RequestFactory implements HttpServletRequestFactory {
 		return wrapper;
 	}
 
+	// 1. 支持在异步条件，运行 AsyncContext.start(Runnable) 时，在 SecurityContextHolder 中获取到正确的 SecurityContext
+	// 2. 支持 HttpServletRequest 在调用 HttpServletRequest#login(String, String) 时，
+	// 	  使用 AuthenticationManager 进行身份认证
+	// 3. 支持 HttpServletRequest 在调用 HttpServletRequest#authenticate(HttpServletResponse) 时，
+	// 	  使用 AuthenticationEntryPoint 进行未进行身份认证处理
+	// 4. 支持 HttpServletRequest 在调用 HttpServletRequest#logout() 时，使用 LogoutHandler 进行用户注销
 	private class Servlet3SecurityContextHolderAwareRequestWrapper extends SecurityContextHolderAwareRequestWrapper {
 
 		private final HttpServletResponse response;
@@ -288,6 +305,7 @@ final class HttpServlet3RequestFactory implements HttpServletRequestFactory {
 
 	}
 
+	// 支持在异步条件，运行 AsyncContext.start(Runnable) 时，在 SecurityContextHolder 中获取到正确的 SecurityContext
 	private static class SecurityContextAsyncContext implements AsyncContext {
 
 		private final AsyncContext asyncContext;
@@ -333,6 +351,7 @@ final class HttpServlet3RequestFactory implements HttpServletRequestFactory {
 
 		@Override
 		public void start(Runnable run) {
+			// 支持在 start 时，执行 Runnable 前设置 SecurityContext
 			this.asyncContext.start(new DelegatingSecurityContextRunnable(run));
 		}
 

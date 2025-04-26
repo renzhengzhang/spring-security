@@ -43,6 +43,12 @@ import org.springframework.util.Assert;
  * <li>{@link HttpServletRequestWrapper#getRemoteUser()}.</li>
  * </ul>
  *
+ * <p>
+ * 为 HttpServletRequest 提供获取 SecurityContextHolder 中 Authentication 对象的能力。<br>
+ * 用于获取当前用户 principle，以及判断是否有对应角色。<br>
+ * 注意：这里不会读取 AnonymousAuthenticationToken，也无法获取 AnonymousAuthenticationToken 的角色。
+ *
+ *
  * @author Orlando Garcia Carmona
  * @author Ben Alex
  * @author Luke Taylor
@@ -92,6 +98,7 @@ public class SecurityContextHolderAwareRequestWrapper extends HttpServletRequest
 	 * @return the authentication object or <code>null</code>
 	 */
 	private Authentication getAuthentication() {
+		// 从 SecurityContextHolder 中获取 Authentication，如果是匿名请求的话会返回 null
 		Authentication auth = this.securityContextHolderStrategy.getContext().getAuthentication();
 		return (!this.trustResolver.isAnonymous(auth)) ? auth : null;
 	}
@@ -100,6 +107,10 @@ public class SecurityContextHolderAwareRequestWrapper extends HttpServletRequest
 	 * Returns the principal's name, as obtained from the
 	 * <code>SecurityContextHolder</code>. Properly handles both <code>String</code>-based
 	 * and <code>UserDetails</code>-based principals.
+	 *
+	 * <p>
+	 * 获取 Authentication 对象中 principal 的 name
+	 *
 	 * @return the username or <code>null</code> if unavailable
 	 */
 	@Override
@@ -131,14 +142,20 @@ public class SecurityContextHolderAwareRequestWrapper extends HttpServletRequest
 		return auth;
 	}
 
+	// 判断当前用户是否拥有指定的角色
 	private boolean isGranted(String role) {
+		// 注意 getAuthentication() 方法是没法返回 AnonymousAuthenticationToken 的，所以这里匿名用户注定没有权限
 		Authentication auth = getAuthentication();
+
+		// 先处理一下 ROLE 格式：如果 rolePrefix 不为空，且 role 不以 rolePrefix 开头，则加上 rolePrefix
 		if (this.rolePrefix != null && role != null && !role.startsWith(this.rolePrefix)) {
 			role = this.rolePrefix + role;
 		}
 		if ((auth == null) || (auth.getPrincipal() == null)) {
 			return false;
 		}
+
+		// 判断 Authentication 对象的 GrantedAuthority 集合，是否包含指定的角色
 		Collection<? extends GrantedAuthority> authorities = auth.getAuthorities();
 		if (authorities == null) {
 			return false;
