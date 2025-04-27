@@ -45,6 +45,7 @@ public final class AuthenticatedAuthorizationManager<T> implements Authorization
 	 * @see #anonymous()
 	 */
 	public AuthenticatedAuthorizationManager() {
+		// 默认使用的策略为 authenticated()，即验证 Authentication 不是  AnonymousAuthenticationToken，且被 authenticated
 		this(new AuthenticatedAuthorizationStrategy());
 	}
 
@@ -118,6 +119,7 @@ public final class AuthenticatedAuthorizationManager<T> implements Authorization
 
 	private abstract static class AbstractAuthorizationStrategy {
 
+		// 判断是否是 AnonymousAuthenticationToken，以及是否是 RememberMeAuthenticationToken
 		AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
 		private void setTrustResolver(AuthenticationTrustResolver trustResolver) {
@@ -129,6 +131,9 @@ public final class AuthenticatedAuthorizationManager<T> implements Authorization
 
 	}
 
+	/**
+	 * 只有 Authentication （非 AnonymousAuthenticationToken）的 isAuthenticated()，才会返回 true
+	 */
 	private static class AuthenticatedAuthorizationStrategy extends AbstractAuthorizationStrategy {
 
 		@Override
@@ -139,6 +144,9 @@ public final class AuthenticatedAuthorizationManager<T> implements Authorization
 
 	}
 
+	/**
+	 * 只要不是 AnonymousAuthenticationToken 和 RememberMeAuthenticationToken，返回 true
+	 */
 	private static final class FullyAuthenticatedAuthorizationStrategy extends AuthenticatedAuthorizationStrategy {
 
 		@Override
@@ -148,6 +156,9 @@ public final class AuthenticatedAuthorizationManager<T> implements Authorization
 
 	}
 
+	/**
+	 * 只有是 AnonymousAuthenticationToken，才会返回 true
+	 */
 	private static final class AnonymousAuthorizationStrategy extends AbstractAuthorizationStrategy {
 
 		@Override
@@ -157,6 +168,9 @@ public final class AuthenticatedAuthorizationManager<T> implements Authorization
 
 	}
 
+	/**
+	 * 只有是 RememberMeAuthenticationToken，才会返回 true
+	 */
 	private static final class RememberMeAuthorizationStrategy extends AbstractAuthorizationStrategy {
 
 		@Override

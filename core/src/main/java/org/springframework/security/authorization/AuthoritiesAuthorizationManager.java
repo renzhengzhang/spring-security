@@ -35,6 +35,7 @@ import org.springframework.util.Assert;
  */
 public final class AuthoritiesAuthorizationManager implements AuthorizationManager<Collection<String>> {
 
+	// 默认无角色体系
 	private RoleHierarchy roleHierarchy = new NullRoleHierarchy();
 
 	/**
@@ -57,6 +58,7 @@ public final class AuthoritiesAuthorizationManager implements AuthorizationManag
 	@Override
 	public AuthorityAuthorizationDecision check(Supplier<Authentication> authentication,
 			Collection<String> authorities) {
+		// 只要 Authentication 的 GrantedAuthorities 中有 authorities 中的任意一个，便认为有权限
 		boolean granted = isGranted(authentication.get(), authorities);
 		return new AuthorityAuthorizationDecision(granted, AuthorityUtils.createAuthorityList(authorities));
 	}
@@ -65,6 +67,9 @@ public final class AuthoritiesAuthorizationManager implements AuthorizationManag
 		return authentication != null && isAuthorized(authentication, authorities);
 	}
 
+	/**
+	 * 判断当前用户是否具有指定的权限，有 authorities 中的任意一个，则返回 true
+	 */
 	private boolean isAuthorized(Authentication authentication, Collection<String> authorities) {
 		for (GrantedAuthority grantedAuthority : getGrantedAuthorities(authentication)) {
 			if (authorities.contains(grantedAuthority.getAuthority())) {
@@ -74,6 +79,9 @@ public final class AuthoritiesAuthorizationManager implements AuthorizationManag
 		return false;
 	}
 
+	/**
+	 * 从角色体系中获取所有可用的权限
+	 */
 	private Collection<? extends GrantedAuthority> getGrantedAuthorities(Authentication authentication) {
 		return this.roleHierarchy.getReachableGrantedAuthorities(authentication.getAuthorities());
 	}

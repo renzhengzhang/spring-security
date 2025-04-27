@@ -28,6 +28,11 @@ import org.springframework.util.Assert;
  * An {@link AuthorizationManager} that determines if the current user is authorized by
  * evaluating if the {@link Authentication} contains a specified authority.
  *
+ * <p>
+ * {@link AuthoritiesAuthorizationManager} 的代理增强类，用于判断 Authentication 中是否有对应权限。<br>
+ * 支持将 role 添加 rolePrefix 格式化为 authority。<br>
+ * 提供 hasRole、hasAnyRole、hasAuthority、hasAnyAuthority 静态方法来创建自身实例。
+ *
  * @param <T> the type of object being authorized.
  * @author Evgeniy Cheban
  * @since 5.5
@@ -40,6 +45,8 @@ public final class AuthorityAuthorizationManager<T> implements AuthorizationMana
 
 	private final Set<String> authorities;
 
+	// 传入一个 authority 表示有这个 authority 才有权限
+	// 传入多个 authority 表示有任意一个 authority 就有权限
 	private AuthorityAuthorizationManager(String... authorities) {
 		this.authorities = Set.of(authorities);
 	}
@@ -51,6 +58,7 @@ public final class AuthorityAuthorizationManager<T> implements AuthorizationMana
 	 * @since 5.8
 	 */
 	public void setRoleHierarchy(RoleHierarchy roleHierarchy) {
+		// 设置角色体系
 		this.delegate.setRoleHierarchy(roleHierarchy);
 	}
 
@@ -63,9 +71,12 @@ public final class AuthorityAuthorizationManager<T> implements AuthorizationMana
 	 * @return the new instance
 	 */
 	public static <T> AuthorityAuthorizationManager<T> hasRole(String role) {
+		// hasRole 时不需要添加 ROLE_ 前缀的
 		Assert.notNull(role, "role cannot be null");
 		Assert.isTrue(!role.startsWith(ROLE_PREFIX), () -> role + " should not start with " + ROLE_PREFIX + " since "
 				+ ROLE_PREFIX + " is automatically prepended when using hasRole. Consider using hasAuthority instead.");
+
+		// 相当于用 ROLE_PREFIX + role 调用 hasAuthority
 		return hasAuthority(ROLE_PREFIX + role);
 	}
 
@@ -121,6 +132,7 @@ public final class AuthorityAuthorizationManager<T> implements AuthorizationMana
 		return new AuthorityAuthorizationManager<>(authorities);
 	}
 
+	// 校验一下 roles 中每一个 role 不以 rolePrefix 开头，然后拼接上 rolePrefix
 	private static String[] toNamedRolesArray(String rolePrefix, String[] roles) {
 		String[] result = new String[roles.length];
 		for (int i = 0; i < roles.length; i++) {
