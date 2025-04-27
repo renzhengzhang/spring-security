@@ -34,6 +34,11 @@ import org.springframework.util.Assert;
  */
 public final class InvalidSessionAccessDeniedHandler implements AccessDeniedHandler {
 
+	// Session 失效处理策略
+	// 1. SimpleRedirectInvalidSessionStrategy
+	// 	  Session 失效时，默认创建新的 Session，跳转至 destinationUrl
+	// 2. RequestedUrlRedirectInvalidSessionStrategy
+	//    Session 失效时，默认创建新的 Session，仍然跳转至当前请求链接
 	private final InvalidSessionStrategy invalidSessionStrategy;
 
 	/**

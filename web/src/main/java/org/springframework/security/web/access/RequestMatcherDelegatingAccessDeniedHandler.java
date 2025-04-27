@@ -33,6 +33,10 @@ import org.springframework.util.Assert;
  * instances based upon the type of {@link HttpServletRequest} passed into
  * {@link #handle(HttpServletRequest, HttpServletResponse, AccessDeniedException)}.
  *
+ * <p>
+ * 支持使用 {@link RequestMatcher} 来匹配 @{@link AccessDeniedHandler}，
+ * 匹配到一个 {@link AccessDeniedHandler} 即结束，后续不再匹配；未匹配到则使用 defaultHandler
+ *
  * @author Josh Cummings
  * @since 5.1
  *
@@ -62,6 +66,8 @@ public final class RequestMatcherDelegatingAccessDeniedHandler implements Access
 	@Override
 	public void handle(HttpServletRequest request, HttpServletResponse response,
 			AccessDeniedException accessDeniedException) throws IOException, ServletException {
+
+		// 使用 RequestMatcher 匹配
 		for (Entry<RequestMatcher, AccessDeniedHandler> entry : this.handlers.entrySet()) {
 			RequestMatcher matcher = entry.getKey();
 			if (matcher.matches(request)) {
@@ -70,6 +76,8 @@ public final class RequestMatcherDelegatingAccessDeniedHandler implements Access
 				return;
 			}
 		}
+
+
 		this.defaultHandler.handle(request, response, accessDeniedException);
 	}
 

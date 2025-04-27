@@ -32,6 +32,9 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * Performs a redirect to the original request URL when an invalid requested session is
  * detected by the {@code SessionManagementFilter}.
  *
+ * <p>
+ * 当 Session 失效时，默认创建新的 Session，仍然跳转至当前请求链接
+ *
  * @author Craig Andrews
  * @author Mark Chesney
  */
@@ -53,6 +56,8 @@ public final class RequestedUrlRedirectInvalidSessionStrategy implements Invalid
 		if (this.logger.isDebugEnabled()) {
 			this.logger.debug("Starting new session (if required) and redirecting to '" + destinationUrl + "'");
 		}
+
+		// 默认需要创建新的 Session
 		if (this.createNewSession) {
 			request.getSession();
 		}

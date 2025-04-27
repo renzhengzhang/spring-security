@@ -41,6 +41,9 @@ import org.springframework.security.web.access.AccessDeniedHandler;
  * scope error</a>; otherwise, it will simply indicate the scheme (Bearer) and any
  * configured realm.
  *
+ * <p>
+ * 设置 HttpStatus 为 403 (Forbidden)。同时在响应头中设置 WWW-Authenticate，包括 realm, error, error_description, error_uri
+ *
  * @author Josh Cummings
  * @since 5.1
  */
@@ -63,12 +66,19 @@ public final class BearerTokenAccessDeniedHandler implements AccessDeniedHandler
 		if (this.realmName != null) {
 			parameters.put("realm", this.realmName);
 		}
+
+		// 当 Authentication 是 AbstractOAuth2TokenAuthenticationToken、JwtAuthenticationToken、 BearerTokenAuthentication 时，
+		// 响应头部添加的 WWW-Authenticate 中添加 error, error_description, error_uri
+		// SecurityContextHolderAwareRequestWrapper.getUserPrincipal 会对 HttpServletRequest 进行增强，
+		// request.getUserPrincipal() 时会返回 Authentication
 		if (request.getUserPrincipal() instanceof AbstractOAuth2TokenAuthenticationToken) {
 			parameters.put("error", BearerTokenErrorCodes.INSUFFICIENT_SCOPE);
 			parameters.put("error_description",
 					"The request requires higher privileges than provided by the access token.");
 			parameters.put("error_uri", "https://tools.ietf.org/html/rfc6750#section-3.1");
 		}
+
+		// 拼接 WWW-Authenticate Header
 		String wwwAuthenticate = computeWWWAuthenticateHeaderValue(parameters);
 		response.addHeader(HttpHeaders.WWW_AUTHENTICATE, wwwAuthenticate);
 		response.setStatus(HttpStatus.FORBIDDEN.value());

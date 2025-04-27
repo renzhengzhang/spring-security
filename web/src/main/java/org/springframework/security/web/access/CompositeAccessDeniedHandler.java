@@ -27,6 +27,10 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.security.access.AccessDeniedException;
 
+
+/**
+ * 组合各 {@link AccessDeniedHandler}，各个 {@link AccessDeniedHandler} 各自执行一遍
+ */
 public final class CompositeAccessDeniedHandler implements AccessDeniedHandler {
 
 	private Collection<AccessDeniedHandler> handlers;

@@ -49,7 +49,9 @@ public class ThrowableAnalyzer {
 	 * @see InvocationTargetException#getTargetException()
 	 */
 	public static final ThrowableCauseExtractor INVOCATIONTARGET_EXTRACTOR = (throwable) -> {
+		// 断言 throwable 是 InvocationTargetException
 		verifyThrowableHierarchy(throwable, InvocationTargetException.class);
+		// 如果是 InvocationTargetException，返回其 targetException，而不是 cause
 		return ((InvocationTargetException) throwable).getTargetException();
 	};
 
@@ -60,6 +62,7 @@ public class ThrowableAnalyzer {
 	 * For hierarchically unrelated classes their fully qualified name will be compared.
 	 */
 	private static final Comparator<Class<? extends Throwable>> CLASS_HIERARCHY_COMPARATOR = (class1, class2) -> {
+		// 谁是子类，谁更小
 		if (class1.isAssignableFrom(class2)) {
 			return 1;
 		}
@@ -79,6 +82,7 @@ public class ThrowableAnalyzer {
 	 * Creates a new <code>ThrowableAnalyzer</code> instance.
 	 */
 	public ThrowableAnalyzer() {
+		// 使用 TreeMap 保证类之间的继承关系，按照继承关系排序，具体的类排在前面
 		this.extractorMap = new TreeMap<>(CLASS_HIERARCHY_COMPARATOR);
 		initExtractorMap();
 	}
@@ -151,6 +155,7 @@ public class ThrowableAnalyzer {
 	 * @see #initExtractorMap()
 	 */
 	public final Throwable[] determineCauseChain(Throwable throwable) {
+		// 提取异常链
 		Assert.notNull(throwable, "Invalid throwable: null");
 		List<Throwable> chain = new ArrayList<>();
 		Throwable currentThrowable = throwable;

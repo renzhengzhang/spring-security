@@ -32,6 +32,9 @@ import org.springframework.util.Assert;
  * Performs a redirect to a fixed URL when an invalid requested session is detected by the
  * {@code SessionManagementFilter}.
  *
+ * <p>
+ * 当 Session 失效时，默认创建新的 Session，跳转至 destinationUrl
+ *
  * @author Luke Taylor
  */
 public final class SimpleRedirectInvalidSessionStrategy implements InvalidSessionStrategy {
@@ -54,9 +57,13 @@ public final class SimpleRedirectInvalidSessionStrategy implements InvalidSessio
 		if (this.logger.isDebugEnabled()) {
 			this.logger.debug("Starting new session (if required) and redirecting to '" + this.destinationUrl + "'");
 		}
+
+		// 默认需要创建新的 Session
 		if (this.createNewSession) {
 			request.getSession();
 		}
+
+		// 跳转至 destinationUrl
 		this.redirectStrategy.sendRedirect(request, response, this.destinationUrl);
 	}
 

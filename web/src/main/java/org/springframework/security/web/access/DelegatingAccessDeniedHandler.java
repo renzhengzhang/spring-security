@@ -32,6 +32,9 @@ import org.springframework.util.Assert;
  * instances based upon the type of {@link AccessDeniedException} passed into
  * {@link #handle(HttpServletRequest, HttpServletResponse, AccessDeniedException)}.
  *
+ * <p>
+ * 使用 {@link AccessDeniedException} 的类型来匹配 {@link AccessDeniedHandler}。未匹配到则使用 defaultHandler
+ *
  * @author Rob Winch
  * @since 3.2
  *

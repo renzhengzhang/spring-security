@@ -95,7 +95,12 @@ public class ExceptionTranslationFilter extends GenericFilterBean implements Mes
 		.getContextHolderStrategy();
 
 	// 用于处理 AccessDeniedException
-	// 1. AccessDeniedHandlerImpl 转发至错误页，可配置 errorPage，未配置则 sendError
+	// 1. AccessDeniedHandlerImpl
+	//    默认使用该实现，转发至错误页，可配置 errorPage，未配置则 sendError
+	// 2. InvalidSessionAccessDeniedHandler
+	//    Session 失效处理策略，默认创建新的 Session，按配置的 InvalidSessionStrategy 可跳转至 destinationUrl 或者当前请求链接
+	// 3. BearerTokenAccessDeniedHandler
+	//    设置 HttpStatus 为 403 (Forbidden)。同时在响应头中设置 WWW-Authenticate
 	private AccessDeniedHandler accessDeniedHandler = new AccessDeniedHandlerImpl();
 
 	// 用于处理 AuthenticationException
@@ -104,6 +109,7 @@ public class ExceptionTranslationFilter extends GenericFilterBean implements Mes
 	// 用于判断是否是 Anonymous 还是 RememberMe Authentication
 	private AuthenticationTrustResolver authenticationTrustResolver = new AuthenticationTrustResolverImpl();
 
+	// 用于提取异常链上的各种 Exception cause
 	private ThrowableAnalyzer throwableAnalyzer = new DefaultThrowableAnalyzer();
 
 	// 用于保存请求，用于身份认证成功之后跳转
@@ -297,6 +303,7 @@ public class ExceptionTranslationFilter extends GenericFilterBean implements Mes
 		@Override
 		protected void initExtractorMap() {
 			super.initExtractorMap();
+			// 如果 throwable 是 ServletException，则返回其 rootCause
 			registerExtractor(ServletException.class, (throwable) -> {
 				ThrowableAnalyzer.verifyThrowableHierarchy(throwable, ServletException.class);
 				return ((ServletException) throwable).getRootCause();

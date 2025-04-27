@@ -26,6 +26,9 @@ import jakarta.servlet.http.HttpServletResponse;
  * Determines the behaviour of the {@code SessionManagementFilter} when an invalid session
  * Id is submitted and detected in the {@code SessionManagementFilter}.
  *
+ * <p>
+ * {@link SessionManagementFilter} 以及 {@link InvalidSessionAccessDeniedHandler} 使用到的 Session 失效策略。
+ *
  * @author Luke Taylor
  */
 public interface InvalidSessionStrategy {
