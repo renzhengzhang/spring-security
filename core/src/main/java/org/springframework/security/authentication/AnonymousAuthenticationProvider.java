@@ -46,9 +46,12 @@ public class AnonymousAuthenticationProvider implements AuthenticationProvider, 
 
 	@Override
 	public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+		// 只支持 AnonymousAuthenticationToken
 		if (!supports(authentication.getClass())) {
 			return null;
 		}
+
+		// 判断 key.hashCode() 和 authentication.getKeyHash() 是否相等，相等才表示认证通过
 		if (this.key.hashCode() != ((AnonymousAuthenticationToken) authentication).getKeyHash()) {
 			throw new BadCredentialsException(this.messages.getMessage("AnonymousAuthenticationProvider.incorrectKey",
 					"The presented AnonymousAuthenticationToken does not contain the expected key"));
