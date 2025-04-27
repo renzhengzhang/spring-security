@@ -52,6 +52,12 @@ import org.springframework.web.servlet.handler.HandlerMappingIntrospector;
  * A base class for registering {@link RequestMatcher}'s. For example, it might allow for
  * specifying which {@link RequestMatcher} require a certain level of authorization.
  *
+ * <p>
+ * 支持直接注册 {@link RequestMatcher} 到 {@code C} <br>
+ * 支持基于 HttpMethod、patterns、DispatcherType 使用工厂模式创建一系列 RequestMatcher <br>
+ * 支持判断是否是 Spring MVC 环境来创建 MvcRequestMatcher 还是 AntPathRequestMatcher
+ *
+ *
  * @param <C> The object that is returned or Chained after creating the RequestMatcher
  * @author Rob Winch
  * @author Ankur Pathak
@@ -90,24 +96,40 @@ public abstract class AbstractRequestMatcherRegistry<C> {
 
 	/**
 	 * Maps any request.
+	 *
+	 * <p>
+	 * 匹配任意请求
+	 *
 	 * @return the object that is chained after creating the {@link RequestMatcher}
 	 */
 	public C anyRequest() {
+		// 当且仅当没有 RequestMatcher 被配置时，才允许配置
 		Assert.state(!this.anyRequestConfigured, "Can't configure anyRequest after itself");
+
+		// 匹配所有请求
 		C configurer = requestMatchers(ANY_REQUEST);
+
+		// 标记 RequestMatcher 已被配置
 		this.anyRequestConfigured = true;
 		return configurer;
 	}
 
 	/**
 	 * Creates {@link MvcRequestMatcher} instances for the method and patterns passed in
+	 *
+	 * <p>
+	 * 配置基于 HandlerMappingIntrospector 匹配的 MvcRequestMatcher
+	 *
 	 * @param method the HTTP method to use or null if any should be used
 	 * @param mvcPatterns the Spring MVC patterns to match on
 	 * @return a List of {@link MvcRequestMatcher} instances
 	 */
 	protected final List<MvcRequestMatcher> createMvcMatchers(HttpMethod method, String... mvcPatterns) {
+		// 当且仅当没有 RequestMatcher 被配置时，才允许配置
 		Assert.state(!this.anyRequestConfigured, "Can't configure mvcMatchers after anyRequest");
 		ObjectPostProcessor<Object> opp = this.context.getBean(ObjectPostProcessor.class);
+
+		// 仅当 Spring MVC 存在时，允许配置 MvcRequestMatcher
 		if (!this.context.containsBean(HANDLER_MAPPING_INTROSPECTOR_BEAN_NAME)) {
 			throw new NoSuchBeanDefinitionException("A Bean named " + HANDLER_MAPPING_INTROSPECTOR_BEAN_NAME
 					+ " of type " + HandlerMappingIntrospector.class.getName()
@@ -116,6 +138,8 @@ public abstract class AbstractRequestMatcherRegistry<C> {
 		HandlerMappingIntrospector introspector = this.context.getBean(HANDLER_MAPPING_INTROSPECTOR_BEAN_NAME,
 				HandlerMappingIntrospector.class);
 		List<MvcRequestMatcher> matchers = new ArrayList<>(mvcPatterns.length);
+
+		// 每个 mvcPattern 创建一个 MvcRequestMatcher
 		for (String mvcPattern : mvcPatterns) {
 			MvcRequestMatcher matcher = new MvcRequestMatcher(introspector, mvcPattern);
 			opp.postProcess(matcher);
@@ -131,6 +155,10 @@ public abstract class AbstractRequestMatcherRegistry<C> {
 	 * Maps a {@link List} of
 	 * {@link org.springframework.security.web.util.matcher.DispatcherTypeRequestMatcher}
 	 * instances.
+	 *
+	 * <p>
+	 * 配置基于 DispatcherType 和 HttpMethod 匹配的 DispatcherTypeRequestMatcher
+	 *
 	 * @param method the {@link HttpMethod} to use or {@code null} for any
 	 * {@link HttpMethod}.
 	 * @param dispatcherTypes the dispatcher types to match against
@@ -149,6 +177,10 @@ public abstract class AbstractRequestMatcherRegistry<C> {
 	 * Create a {@link List} of
 	 * {@link org.springframework.security.web.util.matcher.DispatcherTypeRequestMatcher}
 	 * instances that do not specify an {@link HttpMethod}.
+	 *
+	 * <p>
+	 * 	配置基于 DispatcherType 匹配的 DispatcherTypeRequestMatcher
+	 *
 	 * @param dispatcherTypes the dispatcher types to match against
 	 * @return the object that is chained after creating the {@link RequestMatcher}
 	 */
@@ -160,6 +192,10 @@ public abstract class AbstractRequestMatcherRegistry<C> {
 	/**
 	 * Associates a list of {@link RequestMatcher} instances with the
 	 * {@link AbstractConfigAttributeRequestMatcherRegistry}
+	 *
+	 * <p>
+	 * 配置 RequestMatcher
+	 *
 	 * @param requestMatchers the {@link RequestMatcher} instances
 	 * @return the object that is chained after creating the {@link RequestMatcher}
 	 */
@@ -189,17 +225,24 @@ public abstract class AbstractRequestMatcherRegistry<C> {
 	 * @since 5.8
 	 */
 	public C requestMatchers(HttpMethod method, String... patterns) {
+		// 不 Spring MVC 存在时，使用 AntPathRequestMatcher
 		if (!mvcPresent) {
 			return requestMatchers(RequestMatchers.antMatchersAsArray(method, patterns));
 		}
+
+		// 当 ApplicationContext 不是 WebApplicationContext 时，使用 AntPathRequestMatcher
 		if (!(this.context instanceof WebApplicationContext)) {
 			return requestMatchers(RequestMatchers.antMatchersAsArray(method, patterns));
 		}
+
+
+		// 当 ServletContext 为 null 时，使用 AntPathRequestMatcher
 		WebApplicationContext context = (WebApplicationContext) this.context;
 		ServletContext servletContext = context.getServletContext();
 		if (servletContext == null) {
 			return requestMatchers(RequestMatchers.antMatchersAsArray(method, patterns));
 		}
+
 		boolean isProgrammaticApiAvailable = isProgrammaticApiAvailable(servletContext);
 		List<RequestMatcher> matchers = new ArrayList<>();
 		for (String pattern : patterns) {
@@ -394,6 +437,9 @@ public abstract class AbstractRequestMatcherRegistry<C> {
 	/**
 	 * Utilities for creating {@link RequestMatcher} instances.
 	 *
+	 * <p>
+	 * 创建 {@link RequestMatcher} 的工具
+	 *
 	 * @author Rob Winch
 	 * @since 3.2
 	 */
@@ -496,6 +542,9 @@ public abstract class AbstractRequestMatcherRegistry<C> {
 
 	}
 
+	/**
+	 * 依据是否是 DispatcherServlet，判断是使用 MvcRequestMatcher 还是 AntPathRequestMatcher
+	 */
 	static class DispatcherServletDelegatingRequestMatcher implements RequestMatcher {
 
 		private final AntPathRequestMatcher ant;

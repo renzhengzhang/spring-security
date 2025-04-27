@@ -134,6 +134,10 @@ public final class AuthorizeHttpRequestsConfigurer<H extends HttpSecurityBuilder
 	/**
 	 * Registry for mapping a {@link RequestMatcher} to an {@link AuthorizationManager}.
 	 *
+	 * <p>
+	 * 支持将 {@link RequestMatcher} 映射到 {@link AuthorizationManager}，
+	 * 并基于映射创建 {@link RequestMatcherDelegatingAuthorizationManager}
+	 *
 	 * @author Evgeniy Cheban
 	 */
 	public final class AuthorizationManagerRequestMatcherRegistry
@@ -242,6 +246,10 @@ public final class AuthorizeHttpRequestsConfigurer<H extends HttpSecurityBuilder
 	/**
 	 * An object that allows configuring the {@link AuthorizationManager} for
 	 * {@link RequestMatcher}s.
+	 *
+	 * <p>
+	 * 创建 {@code RequestMatcherEntry<AuthorizationManager<RequestAuthorizationContext>>} 的工具类。
+	 * 提供各类简便方法实例化各类 {@link AuthorizationManager}
 	 *
 	 * @author Evgeniy Cheban
 	 */

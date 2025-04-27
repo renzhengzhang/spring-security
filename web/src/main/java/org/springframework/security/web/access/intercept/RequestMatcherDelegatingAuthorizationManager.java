@@ -41,6 +41,10 @@ import org.springframework.util.Assert;
  * An {@link AuthorizationManager} which delegates to a specific
  * {@link AuthorizationManager} based on a {@link RequestMatcher} evaluation.
  *
+ * <p>
+ * 基于配置的 {@code List<RequestMatcherEntry>}，使用 {@link RequestMatcher} 匹配 AuthorizationManager。
+ * 并且提供工具类配置 {@code List<RequestMatcherEntry>}
+ *
  * @author Evgeniy Cheban
  * @author Parikshit Dutta
  * @since 5.5
@@ -51,6 +55,7 @@ public final class RequestMatcherDelegatingAuthorizationManager implements Autho
 
 	private final Log logger = LogFactory.getLog(getClass());
 
+	// RequestMatcher -> AuthorizationManager<RequestAuthorizationContext> 的映射
 	private final List<RequestMatcherEntry<AuthorizationManager<RequestAuthorizationContext>>> mappings;
 
 	private RequestMatcherDelegatingAuthorizationManager(
@@ -73,6 +78,8 @@ public final class RequestMatcherDelegatingAuthorizationManager implements Autho
 		if (this.logger.isTraceEnabled()) {
 			this.logger.trace(LogMessage.format("Authorizing %s", request));
 		}
+
+		// 遍历 RequestMatcher，判断是否匹配
 		for (RequestMatcherEntry<AuthorizationManager<RequestAuthorizationContext>> mapping : this.mappings) {
 
 			RequestMatcher matcher = mapping.getRequestMatcher();
@@ -89,6 +96,8 @@ public final class RequestMatcherDelegatingAuthorizationManager implements Autho
 		if (this.logger.isTraceEnabled()) {
 			this.logger.trace(LogMessage.of(() -> "Denying request since did not find matching RequestMatcher"));
 		}
+
+		// 未匹配到 RequestMatcher，兜底返回无权限
 		return DENY;
 	}
 
@@ -172,6 +181,10 @@ public final class RequestMatcherDelegatingAuthorizationManager implements Autho
 		/**
 		 * An object that allows configuring the {@link AuthorizationManager} for
 		 * {@link RequestMatcher}s.
+		 *
+		 * <p>
+		 * 创建 {@code RequestMatcherEntry<AuthorizationManager<RequestAuthorizationContext>>} 的工具类。
+		 * 提供各类简便方法实例化各类 {@link AuthorizationManager}
 		 *
 		 * @author Evgeniy Cheban
 		 * @since 6.2

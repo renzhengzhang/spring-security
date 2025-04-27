@@ -57,10 +57,13 @@ public class AuthorizationFilter extends GenericFilterBean {
 
 	private AuthorizationEventPublisher eventPublisher = AuthorizationFilter::noPublish;
 
+	// 一个 request 是否只触发校验逻辑一次，默认为 false
 	private boolean observeOncePerRequest = false;
 
+	// 默认情况下，dispatcherType 为 ERROR 时，需要过滤
 	private boolean filterErrorDispatch = true;
 
+	// 默认情况下，dispatcherType 为 ASYNC 时，需要过滤
 	private boolean filterAsyncDispatch = true;
 
 	/**
@@ -79,27 +82,38 @@ public class AuthorizationFilter extends GenericFilterBean {
 		HttpServletRequest request = (HttpServletRequest) servletRequest;
 		HttpServletResponse response = (HttpServletResponse) servletResponse;
 
+		// 如果 observeOncePerRequest 为 true（默认为 false），且 request 已经过滤过，则直接跳过
 		if (this.observeOncePerRequest && isApplied(request)) {
 			chain.doFilter(request, response);
 			return;
 		}
 
+		// 判断 DispatcherType 为 ERROR 或 ASYNC 时是否需要过滤
 		if (skipDispatch(request)) {
 			chain.doFilter(request, response);
 			return;
 		}
 
+		// 执行过滤逻辑，先在 request 属性中设置 alreadyFilteredAttributeName
 		String alreadyFilteredAttributeName = getAlreadyFilteredAttributeName();
 		request.setAttribute(alreadyFilteredAttributeName, Boolean.TRUE);
+
 		try {
+			// 从 SecurityContextHolder 中获取 Authentication，并使用 AuthorizationManager 校验
 			AuthorizationDecision decision = this.authorizationManager.check(this::getAuthentication, request);
+
+			// 发布 AuthorizationEvent
 			this.eventPublisher.publishAuthorizationEvent(this::getAuthentication, request, decision);
+
+			// 若权限不足，则抛出 AccessDeniedException
 			if (decision != null && !decision.isGranted()) {
 				throw new AccessDeniedException("Access Denied");
 			}
+
 			chain.doFilter(request, response);
 		}
 		finally {
+			// 执行完滤逻辑，移除 request 属性中的 alreadyFilteredAttributeName
 			request.removeAttribute(alreadyFilteredAttributeName);
 		}
 	}

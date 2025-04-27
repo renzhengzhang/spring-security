@@ -26,6 +26,9 @@ import org.springframework.security.core.Authentication;
  * An Authorization manager which can determine if an {@link Authentication} has access to
  * a specific object.
  *
+ * <p>
+ * 用于判断一个 {@link Authentication} 是否有权访问一个特定的对象。若无权限则抛出 {@link AccessDeniedException}
+ *
  * @param <T> the type of object that the authorization check is being done on.
  * @author Evgeniy Cheban
  */
