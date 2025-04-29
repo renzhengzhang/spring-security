@@ -27,6 +27,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 /**
  * Allows configuring a {@link DaoAuthenticationProvider}
  *
+ * <p>
+ * 为 {@link ProviderManagerBuilder} 提供配置的 {@link DaoAuthenticationProvider} 的能力
+ *
  * @param <B> the type of the {@link SecurityBuilder}
  * @param <C> the type of {@link AbstractDaoAuthenticationConfigurer} this is
  * @param <U> The type of {@link UserDetailsService} that is being used
@@ -46,6 +49,7 @@ public abstract class AbstractDaoAuthenticationConfigurer<B extends ProviderMana
 	 */
 	AbstractDaoAuthenticationConfigurer(U userDetailsService) {
 		this.userDetailsService = userDetailsService;
+		// 配置 DaoAuthenticationProvider 的 UserDetailsService
 		this.provider.setUserDetailsService(userDetailsService);
 		if (userDetailsService instanceof UserDetailsPasswordService) {
 			this.provider.setUserDetailsPasswordService((UserDetailsPasswordService) userDetailsService);
@@ -71,17 +75,20 @@ public abstract class AbstractDaoAuthenticationConfigurer<B extends ProviderMana
 	 */
 	@SuppressWarnings("unchecked")
 	public C passwordEncoder(PasswordEncoder passwordEncoder) {
+		// 配置 DaoAuthenticationProvider 的 PasswordEncoder
 		this.provider.setPasswordEncoder(passwordEncoder);
 		return (C) this;
 	}
 
 	public C userDetailsPasswordManager(UserDetailsPasswordService passwordManager) {
+		// 配置 DaoAuthenticationProvider 的 UserDetailsPasswordService
 		this.provider.setUserDetailsPasswordService(passwordManager);
 		return (C) this;
 	}
 
 	@Override
 	public void configure(B builder) throws Exception {
+		// 将 DaoAuthenticationProvider 经过 ObjectPostProcessor 处理后放入 ProviderManagerBuilder 中
 		this.provider = postProcess(this.provider);
 		builder.authenticationProvider(this.provider);
 	}

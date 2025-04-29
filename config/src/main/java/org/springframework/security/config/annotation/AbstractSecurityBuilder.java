@@ -22,6 +22,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * A base {@link SecurityBuilder} that ensures the object being built is only built one
  * time.
  *
+ * <p>
+ * 使用 {@link AtomicBoolean} 来保证对象只被构建一次
+ *
  * @param <O> the type of Object that is being built
  * @author Rob Winch
  *

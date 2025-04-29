@@ -34,6 +34,9 @@ import org.springframework.util.Assert;
  * An {@link AuthenticationProvider} implementation that retrieves user details from a
  * {@link UserDetailsService}.
  *
+ * <p>
+ * 使用{@link UserDetailsService} 获取 {@link UserDetails}，来进行身份认证
+ *
  * @author Ben Alex
  * @author Rob Winch
  */

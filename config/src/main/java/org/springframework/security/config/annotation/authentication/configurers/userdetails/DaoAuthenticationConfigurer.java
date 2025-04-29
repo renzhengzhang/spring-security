@@ -23,6 +23,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 /**
  * Allows configuring a {@link DaoAuthenticationProvider}
  *
+ * <p>
+ * 为 {@link ProviderManagerBuilder} 提供配置的 {@link DaoAuthenticationProvider} 的能力
+ *
  * @param <B> The type of {@link ProviderManagerBuilder} this is
  * @param <U> The type of {@link UserDetailsService} that is being used
  * @author Rob Winch

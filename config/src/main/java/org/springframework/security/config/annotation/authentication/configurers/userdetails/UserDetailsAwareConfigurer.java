@@ -17,6 +17,7 @@
 package org.springframework.security.config.annotation.authentication.configurers.userdetails;
 
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.SecurityConfigurer;
 import org.springframework.security.config.annotation.SecurityConfigurerAdapter;
 import org.springframework.security.config.annotation.authentication.ProviderManagerBuilder;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -25,6 +26,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 /**
  * Base class that allows access to the {@link UserDetailsService} for using as a default
  * value with {@link AuthenticationManagerBuilder}.
+ *
+ * <p>
+ * 为 {@link ProviderManagerBuilder} 提供获取 {@link UserDetailsService} 的{@link SecurityConfigurer}
  *
  * @param <B> the type of the {@link ProviderManagerBuilder}
  * @param <U> the type of {@link UserDetailsService}

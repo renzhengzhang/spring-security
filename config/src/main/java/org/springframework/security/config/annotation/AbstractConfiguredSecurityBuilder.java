@@ -46,6 +46,13 @@ import org.springframework.web.filter.DelegatingFilterProxy;
  * filters necessary for session management, form based login, authorization, etc.
  * </p>
  *
+ * <p>
+ * 支持配置各类 {@link SecurityConfigurer} 来配置 {@link SecurityBuilder} 自身
+ * <p>
+ * 支持在添加 {@link SecurityConfigurer} 时，传入 {@link Customizer} 来配置 {@link SecurityConfigurer}
+ * <p>
+ * 支持在 {@link SecurityBuilder} 构建前使用 {@link SecurityConfigurer} 配置自身
+ *
  * @param <O> The object that this builder returns
  * @param <B> The type of this builder (that is returned by the base class)
  * @author Rob Winch
@@ -56,14 +63,19 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 
 	private final Log logger = LogFactory.getLog(getClass());
 
+	// 存储全部各类 SecurityConfigurer
+	// SecurityConfigurer.class -> List<SecurityConfigurer>
 	private final LinkedHashMap<Class<? extends SecurityConfigurer<O, B>>, List<SecurityConfigurer<O, B>>> configurers = new LinkedHashMap<>();
 
+	// 存放在 SecurityBuilder 在 INITIALIZING 期间添加的 SecurityConfigurer
 	private final List<SecurityConfigurer<O, B>> configurersAddedInInitializing = new ArrayList<>();
 
 	private final Map<Class<?>, Object> sharedObjects = new HashMap<>();
 
+	// 默认不允许配置多个同一类型的 SecurityConfigurer
 	private final boolean allowConfigurersOfSameType;
 
+	// 构建状态初始化为 BuildState.UNBUILT
 	private BuildState buildState = BuildState.UNBUILT;
 
 	private ObjectPostProcessor<Object> objectPostProcessor;
@@ -98,6 +110,9 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 	 * determine if {@link #build()} needs to be called first.
 	 * @return the result of {@link #build()} or {@link #getObject()}. If an error occurs
 	 * while building, returns null.
+	 *
+	 * <p>
+	 * 构建好了直接拿，如果没构建，则构建
 	 */
 	public O getOrBuild() {
 		if (!isUnbuilt()) {
@@ -115,6 +130,10 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 	/**
 	 * Applies a {@link SecurityConfigurerAdapter} to this {@link SecurityBuilder} and
 	 * invokes {@link SecurityConfigurerAdapter#setBuilder(SecurityBuilder)}.
+	 *
+	 * <p>
+	 * 配置 {@link SecurityConfigurerAdapter} 中的 objectPostProcessor，并把自身放入 {@link SecurityConfigurerAdapter}
+	 *
 	 * @param configurer
 	 * @return the {@link SecurityConfigurerAdapter} for further customizations
 	 * @throws Exception
@@ -124,8 +143,11 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 	@Deprecated(since = "6.2", forRemoval = true)
 	@SuppressWarnings("unchecked")
 	public <C extends SecurityConfigurerAdapter<O, B>> C apply(C configurer) throws Exception {
+		// 设置 SecurityConfigurerAdapter 中的 objectPostProcessor
 		configurer.addObjectPostProcessor(this.objectPostProcessor);
+		// 设置 SecurityConfigurerAdapter 中的 builder 为自身
 		configurer.setBuilder((B) this);
+		// 添加 SecurityConfigurerAdapter
 		add(configurer);
 		return configurer;
 	}
@@ -139,6 +161,7 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 	 * @throws Exception
 	 */
 	public <C extends SecurityConfigurer<O, B>> C apply(C configurer) throws Exception {
+		// 添加 SecurityConfigurer
 		add(configurer);
 		return configurer;
 	}
@@ -153,9 +176,13 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 	 */
 	@SuppressWarnings("unchecked")
 	public <C extends SecurityConfigurerAdapter<O, B>> B with(C configurer, Customizer<C> customizer) throws Exception {
+		// 设置 SecurityConfigurerAdapter 中的 objectPostProcessor
 		configurer.addObjectPostProcessor(this.objectPostProcessor);
+		// 设置 SecurityConfigurerAdapter 中的 builder 为自身
 		configurer.setBuilder((B) this);
+		// 添加 SecurityConfigurerAdapter
 		add(configurer);
+		// 调用 Customizer 对 SecurityConfigurerAdapter 进行配置
 		customizer.customize(configurer);
 		return (B) this;
 	}
@@ -192,6 +219,9 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 	 * Adds {@link SecurityConfigurer} ensuring that it is allowed and invoking
 	 * {@link SecurityConfigurer#init(SecurityBuilder)} immediately if necessary.
 	 * @param configurer the {@link SecurityConfigurer} to add
+	 *
+	 * <p>
+	 * 添加 SecurityConfigurer
 	 */
 	@SuppressWarnings("unchecked")
 	private <C extends SecurityConfigurer<O, B>> void add(C configurer) {
@@ -199,16 +229,22 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 		Class<? extends SecurityConfigurer<O, B>> clazz = (Class<? extends SecurityConfigurer<O, B>>) configurer
 			.getClass();
 		synchronized (this.configurers) {
+			// CONFIGURING 及其之后的状态不允许添加 SecurityConfigurer
 			if (this.buildState.isConfigured()) {
 				throw new IllegalStateException("Cannot apply " + configurer + " to already built object");
 			}
 			List<SecurityConfigurer<O, B>> configs = null;
+
+			// 如果允许相同类型的 SecurityConfigurer，则将新增的 SecurityConfigurer 放入 configs
+			// 如果不允许，则需要替换掉原有的同类型的 SecurityConfigurer
 			if (this.allowConfigurersOfSameType) {
 				configs = this.configurers.get(clazz);
 			}
 			configs = (configs != null) ? configs : new ArrayList<>(1);
 			configs.add(configurer);
 			this.configurers.put(clazz, configs);
+
+			// 如果 SecurityBuilder 在构建，则还需要加入到 configurersAddedInInitializing
 			if (this.buildState.isInitializing()) {
 				this.configurersAddedInInitializing.add(configurer);
 			}
@@ -223,6 +259,8 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 	 */
 	@SuppressWarnings("unchecked")
 	public <C extends SecurityConfigurer<O, B>> List<C> getConfigurers(Class<C> clazz) {
+		// 获取对应类型的 SecurityConfigurer
+		// 注意，这里不会从 configurersAddedInInitializing 中获取
 		List<C> configs = (List<C>) this.configurers.get(clazz);
 		if (configs == null) {
 			return new ArrayList<>();
@@ -238,10 +276,13 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 	 */
 	@SuppressWarnings("unchecked")
 	public <C extends SecurityConfigurer<O, B>> List<C> removeConfigurers(Class<C> clazz) {
+		// 移除对应的类型的 SecurityConfigurer
 		List<C> configs = (List<C>) this.configurers.remove(clazz);
 		if (configs == null) {
 			return new ArrayList<>();
 		}
+
+		// 同时移除 configurersAddedInInitializing 中的 SecurityConfigurer
 		removeFromConfigurersAddedInInitializing(clazz);
 		return new ArrayList<>(configs);
 	}
@@ -271,10 +312,13 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 	 */
 	@SuppressWarnings("unchecked")
 	public <C extends SecurityConfigurer<O, B>> C removeConfigurer(Class<C> clazz) {
+		// 移除对应的类型的 SecurityConfigurer
 		List<SecurityConfigurer<O, B>> configs = this.configurers.remove(clazz);
 		if (configs == null) {
 			return null;
 		}
+
+		// 同时移除 configurersAddedInInitializing 中的 SecurityConfigurer
 		removeFromConfigurersAddedInInitializing(clazz);
 		Assert.state(configs.size() == 1,
 				() -> "Only one configurer expected for type " + clazz + ", but got " + configs);
@@ -321,15 +365,27 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 	 */
 	@Override
 	protected final O doBuild() throws Exception {
+		// 拆分 AbstractSecurityBuilder.doBuild() 方法，细分流程，供子类实现
 		synchronized (this.configurers) {
+
+			// ######## 第一过程：使用 SecurityConfigurer 配置 SecurityBuilder
 			this.buildState = BuildState.INITIALIZING;
+			// 供子类实现
 			beforeInit();
+			// 调用各种 SecurityConfigurer（包括 configurersAddedInInitializing）的 init 方法
 			init();
+
 			this.buildState = BuildState.CONFIGURING;
+			// 供子类实现
 			beforeConfigure();
+			// 调用各种 SecurityConfigurer（包括 configurersAddedInInitializing）的 configure 方法
 			configure();
+
+			// ######## 第二过程：使用配置好的 SecurityBuilder 构建结果
 			this.buildState = BuildState.BUILDING;
+			// 供子类实现，执行 SecurityBuilder 的构造功能
 			O result = performBuild();
+
 			this.buildState = BuildState.BUILT;
 			return result;
 		}
@@ -360,6 +416,7 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 
 	@SuppressWarnings("unchecked")
 	private void init() throws Exception {
+		// 调用各种 SecurityConfigurer（包括 configurersAddedInInitializing）的 init 方法
 		Collection<SecurityConfigurer<O, B>> configurers = getConfigurers();
 		for (SecurityConfigurer<O, B> configurer : configurers) {
 			configurer.init((B) this);
@@ -371,6 +428,7 @@ public abstract class AbstractConfiguredSecurityBuilder<O, B extends SecurityBui
 
 	@SuppressWarnings("unchecked")
 	private void configure() throws Exception {
+		// 调用各种 SecurityConfigurer（不包括 configurersAddedInInitializing）的 init 方法
 		Collection<SecurityConfigurer<O, B>> configurers = getConfigurers();
 		for (SecurityConfigurer<O, B> configurer : configurers) {
 			configurer.configure((B) this);

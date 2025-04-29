@@ -18,14 +18,21 @@ package org.springframework.security.config.annotation.authentication.configurer
 
 import java.util.ArrayList;
 
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.ProviderManagerBuilder;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.provisioning.UserDetailsManager;
 
 /**
  * Configures an
  * {@link org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder}
  * to have in memory authentication. It also allows easily adding users to the in memory
  * authentication.
+ *
+ * <p>
+ * 使用 {@link InMemoryUserDetailsManager} 作为 {@link ProviderManagerBuilder}
+ * 中 {@link DaoAuthenticationProvider} 的 {@link UserDetailsService}，支持在 {@link UserDetailsManager } 初始化一些用户
  *
  * @param <B> the type of the {@link ProviderManagerBuilder} that is being configured
  * @author Rob Winch

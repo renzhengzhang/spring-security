@@ -39,11 +39,14 @@ import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.core.log.LogMessage;
 import org.springframework.security.authentication.AuthenticationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.DefaultAuthenticationEventPublisher;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.ObjectPostProcessor;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.authentication.configurers.provisioning.InMemoryUserDetailsManagerConfigurer;
 import org.springframework.security.config.annotation.authentication.configurers.provisioning.JdbcUserDetailsManagerConfigurer;
+import org.springframework.security.config.annotation.authentication.configurers.userdetails.AbstractDaoAuthenticationConfigurer;
 import org.springframework.security.config.annotation.authentication.configurers.userdetails.DaoAuthenticationConfigurer;
 import org.springframework.security.config.annotation.configuration.ObjectPostProcessorConfiguration;
 import org.springframework.security.core.Authentication;
@@ -56,6 +59,11 @@ import org.springframework.util.Assert;
 /**
  * Exports the authentication {@link Configuration}
  *
+ * <p>
+ * 向 {@link ApplicationContext} 中注册 {@link DefaultPasswordEncoderAuthenticationManagerBuilder}
+ * 作为 AuthenticationManagerBuilder。这个 AuthenticationManagerBuilder 可以被其各类 SecurityConfigurer 从 {@link ApplicationContext} 中
+ * 获取 UserDetailsService、PasswordEncoder、DaoAuthenticationProvider、AuthenticationProvider 来配置 AuthenticationManagerBuilder
+ *
  * @author Rob Winch
  * @since 3.2
  *
@@ -64,6 +72,7 @@ import org.springframework.util.Assert;
 @Import(ObjectPostProcessorConfiguration.class)
 public class AuthenticationConfiguration {
 
+	// 表示使用 ApplicationContext 中的 AuthenticationManagerBuilder 构建 AuthenticationManager
 	private AtomicBoolean buildingAuthenticationManager = new AtomicBoolean();
 
 	private ApplicationContext applicationContext;
@@ -76,6 +85,11 @@ public class AuthenticationConfiguration {
 
 	private ObjectPostProcessor<Object> objectPostProcessor;
 
+	/**
+	 * 向 ApplicationContext 中注册 {@link DefaultPasswordEncoderAuthenticationManagerBuilder} 作为 AuthenticationManagerBuilder。
+	 * 这个 AuthenticationManagerBuilder 可以被其各类 SecurityConfigurer 从 {@link ApplicationContext} 中
+	 * 获取 UserDetailsService、PasswordEncoder、DaoAuthenticationProvider、AuthenticationProvider 来配置 AuthenticationManagerBuilder
+	 */
 	@Bean
 	public AuthenticationManagerBuilder authenticationManagerBuilder(ObjectPostProcessor<Object> objectPostProcessor,
 			ApplicationContext context) {
@@ -95,34 +109,67 @@ public class AuthenticationConfiguration {
 		return new EnableGlobalAuthenticationAutowiredConfigurer(context);
 	}
 
+
+	/**
+	 * 如果 {@link AuthenticationManagerBuilder} 中还没有配置 authenticationProviders 以及 parentAuthenticationManager，
+	 * 则 {@link InitializeUserDetailsBeanManagerConfigurer} 会从 {@link ApplicationContext} 中
+	 * 取 {@link AuthenticationProvider} 放入 {@link AuthenticationManagerBuilder}
+	 */
 	@Bean
 	public static InitializeUserDetailsBeanManagerConfigurer initializeUserDetailsBeanManagerConfigurer(
 			ApplicationContext context) {
 		return new InitializeUserDetailsBeanManagerConfigurer(context);
 	}
 
+	/**
+	 * 如果 {@link AuthenticationManagerBuilder} 中还没有配置 authenticationProviders 以及 parentAuthenticationManager，
+	 * 则 {@link InitializeUserDetailsBeanManagerConfigurer} 会从 {@link ApplicationContext} 中取 {@link UserDetailsService}、
+	 * {@link PasswordEncoder} 自动配置 {@link DaoAuthenticationProvider} 到 {@link AuthenticationManagerBuilder}
+	 */
 	@Bean
 	public static InitializeAuthenticationProviderBeanManagerConfigurer initializeAuthenticationProviderBeanManagerConfigurer(
 			ApplicationContext context) {
 		return new InitializeAuthenticationProviderBeanManagerConfigurer(context);
 	}
 
+
+	/**
+	 * 返回从 ApplicationContext 中获取 UserDetailsService、PasswordEncoder、DaoAuthenticationProvider、AuthenticationProvider
+	 * 和 AuthenticationManager 来构建的 ProviderManager，HttpSecurityConfiguration#httpSecurity()
+	 * 会调用此方法，来作为 parent AuthenticationManager
+	 */
 	public AuthenticationManager getAuthenticationManager() throws Exception {
 		if (this.authenticationManagerInitialized) {
 			return this.authenticationManager;
 		}
+
+		// 使用 ApplicationContext 中的 AuthenticationManagerBuilder 构建 AuthenticationManager
+		// AuthenticationConfiguration.authenticationManagerBuilder() 会向 ApplicationContext 注册 AuthenticationManagerBuilder
 		AuthenticationManagerBuilder authBuilder = this.applicationContext.getBean(AuthenticationManagerBuilder.class);
+
+		// buildingAuthenticationManager 保证后面的逻辑只会调用一遍
 		if (this.buildingAuthenticationManager.getAndSet(true)) {
 			return new AuthenticationManagerDelegator(authBuilder);
 		}
+
+		// 将 globalAuthConfigurers 中的各个 SecurityConfigurer 加入到 AuthenticationManagerBuilder 中，并进行构建
+		// 1. InitializeUserDetailsBeanManagerConfigurer
+		//    支持从 ApplicationContext 获取 UserDetailsService、PasswordEncoder，初始化 DaoAuthenticationProvider
+		// 2. InitializeAuthenticationProviderBeanManagerConfigurer
+		//    支持从 ApplicationContext 获取 AuthenticationProvider，来配置 AuthenticationManager
 		for (GlobalAuthenticationConfigurerAdapter config : this.globalAuthConfigurers) {
 			authBuilder.apply(config);
 		}
 		this.authenticationManager = authBuilder.build();
+
+
+		// AuthenticationManagerBuilder 没有构建出来，则从 ApplicationContext 中获取
+		// AuthenticationManagerBuilder 没有配置 parent AuthenticationManager 和 authenticationProviders 是构建不出 AuthenticationManager 的
 		if (this.authenticationManager == null) {
 			this.authenticationManager = getAuthenticationManagerBean();
 		}
 		this.authenticationManagerInitialized = true;
+
 		return this.authenticationManager;
 	}
 
@@ -142,6 +189,10 @@ public class AuthenticationConfiguration {
 		this.objectPostProcessor = objectPostProcessor;
 	}
 
+	/**
+	 * 从 ApplicationContext 中获取 AuthenticationEventPublisher <br>
+	 * 如果不存在则创建一个，则实例化一个 DefaultAuthenticationEventPublisher
+	 */
 	private AuthenticationEventPublisher getAuthenticationEventPublisher(ApplicationContext context) {
 		if (context.getBeanNamesForType(AuthenticationEventPublisher.class).length > 0) {
 			return context.getBean(AuthenticationEventPublisher.class);
@@ -268,6 +319,10 @@ public class AuthenticationConfiguration {
 
 	}
 
+
+	/**
+	 * 为 {@link AbstractDaoAuthenticationConfigurer} 提供快速配置的 {@link PasswordEncoder} 的能力
+	 */
 	static class DefaultPasswordEncoderAuthenticationManagerBuilder extends AuthenticationManagerBuilder {
 
 		private PasswordEncoder defaultPasswordEncoder;
@@ -301,6 +356,10 @@ public class AuthenticationConfiguration {
 
 	}
 
+	/**
+	 * 从 ApplicationContext 中懒加载 PasswordEncoder。<br>
+	 * 如果 ApplicationContext 中没有，则使用 PasswordEncoderFactories.createDelegatingPasswordEncoder() 创建一个
+	 */
 	static class LazyPasswordEncoder implements PasswordEncoder {
 
 		private ApplicationContext applicationContext;

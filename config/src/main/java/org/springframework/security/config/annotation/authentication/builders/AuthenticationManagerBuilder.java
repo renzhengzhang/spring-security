@@ -26,6 +26,7 @@ import org.springframework.security.authentication.AuthenticationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.AbstractConfiguredSecurityBuilder;
 import org.springframework.security.config.annotation.ObjectPostProcessor;
 import org.springframework.security.config.annotation.SecurityBuilder;
@@ -38,6 +39,8 @@ import org.springframework.security.config.annotation.authentication.configurers
 import org.springframework.security.config.annotation.authentication.configurers.userdetails.UserDetailsAwareConfigurer;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.provisioning.JdbcUserDetailsManager;
 import org.springframework.util.Assert;
 
 /**
@@ -45,6 +48,18 @@ import org.springframework.util.Assert;
  * easily building in memory authentication, LDAP authentication, JDBC based
  * authentication, adding {@link UserDetailsService}, and adding
  * {@link AuthenticationProvider}'s.
+ *
+ * <p>
+ * 支持基于 parent AuthenticationManager 和 {@link AuthenticationProvider} 来构建 {@link ProviderManager}
+ * <p>
+ * 提供 {@link AuthenticationManagerBuilder#inMemoryAuthentication()} 来使用 {@link InMemoryUserDetailsManager}
+ * 作为 {@link ProviderManagerBuilder} 中 {@link DaoAuthenticationProvider} 的 {@link UserDetailsService}
+ * <p>
+ * 提供 {@link AuthenticationManagerBuilder#jdbcAuthentication()} 来使用 {@link JdbcUserDetailsManager}
+ * 作为 {@link ProviderManagerBuilder} 中 {@link DaoAuthenticationProvider} 的 {@link UserDetailsService}
+ * <p>
+ * 提供 {@link AuthenticationManagerBuilder#userDetailsService(UserDetailsService)} 来使用传入的 UserDetailsService
+ * 作为 {@link ProviderManagerBuilder} 中 {@link DaoAuthenticationProvider} 的 {@link UserDetailsService}
  *
  * @author Rob Winch
  * @since 3.2
@@ -84,6 +99,7 @@ public class AuthenticationManagerBuilder
 	 * authentication
 	 */
 	public AuthenticationManagerBuilder parentAuthenticationManager(AuthenticationManager authenticationManager) {
+		// 配置 parent AuthenticationManager，≈ eraseCredentials 与 parent 保持一致
 		if (authenticationManager instanceof ProviderManager) {
 			eraseCredentials(((ProviderManager) authenticationManager).isEraseCredentialsAfterAuthentication());
 		}
@@ -97,6 +113,7 @@ public class AuthenticationManagerBuilder
 	 * @return the {@link AuthenticationManagerBuilder} for further customizations
 	 */
 	public AuthenticationManagerBuilder authenticationEventPublisher(AuthenticationEventPublisher eventPublisher) {
+		// 配置 AuthenticationEventPublisher
 		Assert.notNull(eventPublisher, "AuthenticationEventPublisher cannot be null");
 		this.eventPublisher = eventPublisher;
 		return this;
@@ -108,6 +125,7 @@ public class AuthenticationManagerBuilder
 	 * @return the {@link AuthenticationManagerBuilder} for further customizations
 	 */
 	public AuthenticationManagerBuilder eraseCredentials(boolean eraseCredentials) {
+		// 配置是否需要清空 Authentication 中的 Credentials
 		this.eraseCredentials = eraseCredentials;
 		return this;
 	}
@@ -129,6 +147,9 @@ public class AuthenticationManagerBuilder
 	 */
 	public InMemoryUserDetailsManagerConfigurer<AuthenticationManagerBuilder> inMemoryAuthentication()
 			throws Exception {
+		// 1. 使用 InMemoryUserDetailsManager 作为 ProviderManagerBuilder 中 DaoAuthenticationProvider 的 UserDetailsService，
+		//    支持在 UserDetailsManager 初始化一些用户
+		// 2. 配置 InMemoryUserDetailsManagerConfigurer，并将其添加至 configurers 中
 		return apply(new InMemoryUserDetailsManagerConfigurer<>());
 	}
 
@@ -157,6 +178,8 @@ public class AuthenticationManagerBuilder
 	 * @throws Exception if an error occurs when adding the JDBC authentication
 	 */
 	public JdbcUserDetailsManagerConfigurer<AuthenticationManagerBuilder> jdbcAuthentication() throws Exception {
+		// 1. 使用 JdbcUserDetailsManager 作为 ProviderManagerBuilder 中 DaoAuthenticationProvider 的 UserDetailsService
+		// 2. 配置 JdbcUserDetailsManagerConfigurer，并将其添加至 configurers 中
 		return apply(new JdbcUserDetailsManagerConfigurer<>());
 	}
 
@@ -178,6 +201,8 @@ public class AuthenticationManagerBuilder
 	 */
 	public <T extends UserDetailsService> DaoAuthenticationConfigurer<AuthenticationManagerBuilder, T> userDetailsService(
 			T userDetailsService) throws Exception {
+		// 1. 使用 userDetailsService 作为 ProviderManagerBuilder 中 DaoAuthenticationProvider 的 UserDetailsService
+		// 2. 配置 DaoAuthenticationConfigurer，并将其添加至 configurers 中
 		this.defaultUserDetailsService = userDetailsService;
 		return apply(new DaoAuthenticationConfigurer<>(userDetailsService));
 	}
@@ -215,24 +240,32 @@ public class AuthenticationManagerBuilder
 	 */
 	@Override
 	public AuthenticationManagerBuilder authenticationProvider(AuthenticationProvider authenticationProvider) {
+		// 添加 AuthenticationProvider
 		this.authenticationProviders.add(authenticationProvider);
 		return this;
 	}
 
 	@Override
 	protected ProviderManager performBuild() throws Exception {
+		// 要么配置 parent AuthenticationManager，要么配置 authenticationProviders
 		if (!isConfigured()) {
 			this.logger.debug("No authenticationProviders and no parentAuthenticationManager defined. Returning null.");
 			return null;
 		}
+
+		// 基于 parent AuthenticationManager 和 authenticationProviders 构建 ProviderManager
 		ProviderManager providerManager = new ProviderManager(this.authenticationProviders,
 				this.parentAuthenticationManager);
+
+		// 配置 ProviderManager 的 eraseCredentials 和 eventPublisher
 		if (this.eraseCredentials != null) {
 			providerManager.setEraseCredentialsAfterAuthentication(this.eraseCredentials);
 		}
 		if (this.eventPublisher != null) {
 			providerManager.setAuthenticationEventPublisher(this.eventPublisher);
 		}
+
+		// 进行后处理
 		providerManager = postProcess(providerManager);
 		return providerManager;
 	}
@@ -276,7 +309,9 @@ public class AuthenticationManagerBuilder
 	 */
 	private <C extends UserDetailsAwareConfigurer<AuthenticationManagerBuilder, ? extends UserDetailsService>> C apply(
 			C configurer) throws Exception {
+		// 从 UserDetailsAwareConfigurer 中获取 UserDetailsService，将 UserDetailsService 设置到 defaultUserDetailsService
 		this.defaultUserDetailsService = configurer.getUserDetailsService();
+		// 配置 UserDetailsAwareConfigurer，并将其添加至 configurers 中
 		return super.apply(configurer);
 	}
 

@@ -30,6 +30,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * not yet configured and there is only a single Bean of that type. Optionally, if a
  * {@link PasswordEncoder} is defined will wire this up too.
  *
+ * <p>
+ * 如果 {@link AuthenticationManagerBuilder} 中还没有配置 authenticationProviders 以及 parentAuthenticationManager，
+ * 则 {@link InitializeUserDetailsBeanManagerConfigurer} 会从 {@link ApplicationContext} 中取 {@link UserDetailsService}、
+ * {@link PasswordEncoder} 自动配置 {@link DaoAuthenticationProvider} 到 {@link AuthenticationManagerBuilder}
+ *
  * @author Rob Winch
  * @since 4.1
  */
@@ -56,9 +61,13 @@ class InitializeUserDetailsBeanManagerConfigurer extends GlobalAuthenticationCon
 
 		@Override
 		public void configure(AuthenticationManagerBuilder auth) throws Exception {
+			// 如果 AuthenticationManagerBuilder 已经配置了 authenticationProviders 或者 parentAuthenticationManager
+			// 则本 SecurityConfigurer 不进行配置
 			if (auth.isConfigured()) {
 				return;
 			}
+
+			// 支持从 ApplicationContext 获取 UserDetailsService、PasswordEncoder，初始化 DaoAuthenticationProvider
 			UserDetailsService userDetailsService = getBeanOrNull(UserDetailsService.class);
 			if (userDetailsService == null) {
 				return;

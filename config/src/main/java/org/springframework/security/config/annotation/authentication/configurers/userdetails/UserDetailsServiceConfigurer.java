@@ -24,6 +24,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
  * Allows configuring a {@link UserDetailsService} within a
  * {@link AuthenticationManagerBuilder}.
  *
+ * <p>
+ * 相比于父类 {@link AbstractDaoAuthenticationConfigurer} 提初始化 {@link UserDetailsService} 的能力
+ *
  * @param <B> the type of the {@link ProviderManagerBuilder}
  * @param <C> the {@link UserDetailsServiceConfigurer} (or this)
  * @param <U> the type of UserDetailsService being used to allow for returning the

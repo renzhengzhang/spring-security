@@ -103,11 +103,16 @@ class HttpSecurityConfiguration {
 	@Bean(HTTPSECURITY_BEAN_NAME)
 	@Scope("prototype")
 	HttpSecurity httpSecurity() throws Exception {
+		// 初始化 AuthenticationManagerBuilder 作为 HttpSecurity 的 AuthenticationManagerBuilder，并且放入 SharedObject
 		LazyPasswordEncoder passwordEncoder = new LazyPasswordEncoder(this.context);
 		AuthenticationManagerBuilder authenticationBuilder = new DefaultPasswordEncoderAuthenticationManagerBuilder(
 				this.objectPostProcessor, passwordEncoder);
+		// authenticationManager() 获取的是由框架使用者在 ApplicationContext 中注入 UserDetailsService、PasswordEncoder、
+		// DaoAuthenticationProvider、AuthenticationProvider 等 Bean 配置而来，来作为 parent AuthenticationManager
 		authenticationBuilder.parentAuthenticationManager(authenticationManager());
 		authenticationBuilder.authenticationEventPublisher(getAuthenticationEventPublisher());
+
+
 		HttpSecurity http = new HttpSecurity(this.objectPostProcessor, authenticationBuilder, createSharedObjects());
 		WebAsyncManagerIntegrationFilter webAsyncManagerIntegrationFilter = new WebAsyncManagerIntegrationFilter();
 		webAsyncManagerIntegrationFilter.setSecurityContextHolderStrategy(this.securityContextHolderStrategy);
@@ -137,6 +142,9 @@ class HttpSecurityConfiguration {
 		}
 	}
 
+	// 从 AuthenticationConfiguration 获取 AuthenticationManager
+	// 这个 AuthenticationManager 是由框架使用者在 ApplicationContext 中注入 UserDetailsService、
+	// PasswordEncoder、DaoAuthenticationProvider、AuthenticationProvider 等 Bean 配置而来，后续会作为 parent AuthenticationManager
 	private AuthenticationManager authenticationManager() throws Exception {
 		return this.authenticationConfiguration.getAuthenticationManager();
 	}

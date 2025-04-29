@@ -29,6 +29,10 @@ import org.springframework.util.Assert;
  * {@link SecurityConfigurer} and when done gaining access to the {@link SecurityBuilder}
  * that is being configured.
  *
+ * <p>
+ * {@link SecurityConfigurer} 的抽象类，将 {@link SecurityBuilder} 存储在内部，
+ * 提供 {@code init()} 和 {@code configure()} 方法配置 {@link SecurityBuilder}
+ *
  * @param <O> The Object being built by B
  * @param <B> The Builder that is building O and is configured by
  * {@link SecurityConfigurerAdapter}
@@ -113,6 +117,7 @@ public abstract class SecurityConfigurerAdapter<O, B extends SecurityBuilder<O>>
 		@Override
 		@SuppressWarnings({ "rawtypes", "unchecked" })
 		public Object postProcess(Object object) {
+			// 依据泛型匹配 ObjectPostProcessor
 			for (ObjectPostProcessor opp : this.postProcessors) {
 				Class<?> oppClass = opp.getClass();
 				Class<?> oppType = GenericTypeResolver.resolveTypeArgument(oppClass, ObjectPostProcessor.class);

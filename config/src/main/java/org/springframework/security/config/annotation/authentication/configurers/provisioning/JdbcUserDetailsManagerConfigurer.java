@@ -26,8 +26,10 @@ import org.springframework.core.io.Resource;
 import org.springframework.jdbc.datasource.init.DataSourceInitializer;
 import org.springframework.jdbc.datasource.init.DatabasePopulator;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.ProviderManagerBuilder;
 import org.springframework.security.core.userdetails.UserCache;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.JdbcUserDetailsManager;
 
 /**
@@ -39,6 +41,10 @@ import org.springframework.security.provisioning.JdbcUserDetailsManager;
  * <p>
  * The only required method is the {@link #dataSource(javax.sql.DataSource)} all other
  * methods have reasonable defaults.
+ *
+ * <p>
+ * 使用 {@link JdbcUserDetailsManager} 作为 {@link ProviderManagerBuilder}
+ * 中 {@link DaoAuthenticationProvider} 的 {@link UserDetailsService}
  *
  * @param <B> the type of the {@link ProviderManagerBuilder} that is being configured
  * @author Rob Winch

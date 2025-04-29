@@ -21,6 +21,7 @@ import java.util.List;
 
 import org.springframework.security.config.annotation.SecurityBuilder;
 import org.springframework.security.config.annotation.authentication.ProviderManagerBuilder;
+import org.springframework.security.config.annotation.authentication.configurers.userdetails.AbstractDaoAuthenticationConfigurer;
 import org.springframework.security.config.annotation.authentication.configurers.userdetails.UserDetailsServiceConfigurer;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
@@ -32,6 +33,10 @@ import org.springframework.security.provisioning.UserDetailsManager;
  * Base class for populating an
  * {@link org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder}
  * with a {@link UserDetailsManager}.
+ *
+ * <p>
+ * 相比于父类 {@link AbstractDaoAuthenticationConfigurer} 提初始化 {@link UserDetailsManager} 的能力，
+ * 支持在 {@link UserDetailsManager} 添加一些用户
  *
  * @param <B> the type of the {@link SecurityBuilder} that is being configured
  * @param <C> the type of {@link UserDetailsManagerConfigurer}
