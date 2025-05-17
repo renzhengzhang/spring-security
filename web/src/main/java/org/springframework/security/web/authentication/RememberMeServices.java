@@ -20,6 +20,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.security.core.Authentication;
+import org.springframework.security.web.authentication.rememberme.RememberMeAuthenticationFilter;
 
 /**
  * Implement by a class that is capable of providing a remember-me service.
@@ -43,6 +44,10 @@ import org.springframework.security.core.Authentication;
  * This interface does not define how remember-me services should offer a "cancel all
  * remember-me tokens" type capability, as this will be implementation specific and
  * requires no hooks into Spring Security.
+ *
+ * <p>
+ * {@link AbstractAuthenticationProcessingFilter} 登录成功或失败时会调用这个接口的 loginSuccess 以及 loginFail 方法；
+ * {@link RememberMeAuthenticationFilter} 会调用 autoLogin 以及 loginFail 方法；
  *
  * @author Ben Alex
  */

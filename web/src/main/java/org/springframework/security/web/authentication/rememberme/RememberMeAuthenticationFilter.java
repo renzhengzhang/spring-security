@@ -73,6 +73,13 @@ public class RememberMeAuthenticationFilter extends GenericFilterBean implements
 
 	private ApplicationEventPublisher eventPublisher;
 
+	// 身份认证成功处理器
+	// - SimpleUrlAuthenticationSuccessHandler
+	//   认证成功之后进行链接跳转，支持指定 targetUrl
+	// - SavedRequestAwareAuthenticationSuccessHandler
+	// 	 认证成功之后进行链接跳转，如果有 CachedRequest，则跳转至 CachedRequest，默认跳转至根路径或者请求参数中的目标路径
+	// - ForwardAuthenticationSuccessHandler
+	//   认证成功之后，转发至 forwardUrl
 	private AuthenticationSuccessHandler successHandler;
 
 	private AuthenticationManager authenticationManager;
@@ -103,6 +110,7 @@ public class RememberMeAuthenticationFilter extends GenericFilterBean implements
 
 	private void doFilter(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
+		// 当身份认证成功后，SecurityContextHolder 中已经存在认证信息，则不进行身份认证
 		if (this.securityContextHolderStrategy.getContext().getAuthentication() != null) {
 			this.logger.debug(LogMessage
 				.of(() -> "SecurityContextHolder not populated with remember-me token, as it already contained: '"
@@ -110,10 +118,13 @@ public class RememberMeAuthenticationFilter extends GenericFilterBean implements
 			chain.doFilter(request, response);
 			return;
 		}
+
+		// 当 SecurityContextHolder 中没有 Authentication 时（登录过期）， 尝试从 RememberMeServices 中获取认证信息
 		Authentication rememberMeAuth = this.rememberMeServices.autoLogin(request, response);
 		if (rememberMeAuth != null) {
 			// Attempt authentication via AuthenticationManager
 			try {
+				// 使用 AuthenticationManager 进行身份认证，调用 RememberMeAuthenticationProvider
 				rememberMeAuth = this.authenticationManager.authenticate(rememberMeAuth);
 				// Store to SecurityContextHolder
 				SecurityContext context = this.securityContextHolderStrategy.createEmptyContext();
@@ -122,11 +133,16 @@ public class RememberMeAuthenticationFilter extends GenericFilterBean implements
 				onSuccessfulAuthentication(request, response, rememberMeAuth);
 				this.logger.debug(LogMessage.of(() -> "SecurityContextHolder populated with remember-me token: '"
 						+ this.securityContextHolderStrategy.getContext().getAuthentication() + "'"));
+
+				// 认证成功，需要将 SecurityContext 保存到 SecurityContextRepository
 				this.securityContextRepository.saveContext(context, request, response);
+
+				// 发布认证成功事件
 				if (this.eventPublisher != null) {
 					this.eventPublisher.publishEvent(new InteractiveAuthenticationSuccessEvent(
 							this.securityContextHolderStrategy.getContext().getAuthentication(), this.getClass()));
 				}
+				// 身份认证成功处理器，可以用于认证成功之后进行链接跳转
 				if (this.successHandler != null) {
 					this.successHandler.onAuthenticationSuccess(request, response, rememberMeAuth);
 					return;
