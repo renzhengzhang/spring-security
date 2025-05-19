@@ -36,6 +36,9 @@ import org.springframework.util.StringUtils;
  * Extracts the {@link GrantedAuthority}s from scope attributes typically found in a
  * {@link Jwt}.
  *
+ * <p>
+ * 从 JWT 的 Claim 中解析 authorities，并转换为 {@link GrantedAuthority}s
+ *
  * @author Eric Deandrea
  * @since 5.2
  */
@@ -43,10 +46,14 @@ public final class JwtGrantedAuthoritiesConverter implements Converter<Jwt, Coll
 
 	private final Log logger = LogFactory.getLog(getClass());
 
+	/**
+	 * 默认 Authority 前缀
+	 */
 	private static final String DEFAULT_AUTHORITY_PREFIX = "SCOPE_";
 
 	private static final String DEFAULT_AUTHORITIES_CLAIM_DELIMITER = " ";
 
+	// 常见的 Authority 的 Claim 名称
 	private static final Collection<String> WELL_KNOWN_AUTHORITIES_CLAIM_NAMES = Arrays.asList("scope", "scp");
 
 	private String authorityPrefix = DEFAULT_AUTHORITY_PREFIX;
@@ -63,9 +70,12 @@ public final class JwtGrantedAuthoritiesConverter implements Converter<Jwt, Coll
 	@Override
 	public Collection<GrantedAuthority> convert(Jwt jwt) {
 		Collection<GrantedAuthority> grantedAuthorities = new ArrayList<>();
+
+		// 从 JWT 的 Claim 中获取对应的 Authority，添加 Prefix 之后转换成 SimpleGrantedAuthority
 		for (String authority : getAuthorities(jwt)) {
 			grantedAuthorities.add(new SimpleGrantedAuthority(this.authorityPrefix + authority));
 		}
+
 		return grantedAuthorities;
 	}
 
@@ -105,6 +115,9 @@ public final class JwtGrantedAuthoritiesConverter implements Converter<Jwt, Coll
 		this.authoritiesClaimName = authoritiesClaimName;
 	}
 
+	/**
+	 * 获取 JWT 中 authorities 的 Claim 名称，可以是 scope 或者 scp
+	 */
 	private String getAuthoritiesClaimName(Jwt jwt) {
 		if (this.authoritiesClaimName != null) {
 			return this.authoritiesClaimName;
@@ -118,7 +131,10 @@ public final class JwtGrantedAuthoritiesConverter implements Converter<Jwt, Coll
 	}
 
 	private Collection<String> getAuthorities(Jwt jwt) {
+		// 获取 JWT 中 authorities 的 Claim 名称，可以是 scope 或者 scp
 		String claimName = getAuthoritiesClaimName(jwt);
+
+		// 没有这样的 Claim，返回空集合
 		if (claimName == null) {
 			this.logger.trace("Returning no authorities since could not find any claims that might contain scopes");
 			return Collections.emptyList();
@@ -126,13 +142,18 @@ public final class JwtGrantedAuthoritiesConverter implements Converter<Jwt, Coll
 		if (this.logger.isTraceEnabled()) {
 			this.logger.trace(LogMessage.format("Looking for scopes in claim %s", claimName));
 		}
+
+		// 获取对应的 Claim 值
 		Object authorities = jwt.getClaim(claimName);
+
+		// 如果是 String 类型，可以尝试使用空格分割为多个
 		if (authorities instanceof String) {
 			if (StringUtils.hasText((String) authorities)) {
 				return Arrays.asList(((String) authorities).split(this.authoritiesClaimDelimiter));
 			}
 			return Collections.emptyList();
 		}
+
 		if (authorities instanceof Collection) {
 			return castAuthoritiesToCollection(authorities);
 		}

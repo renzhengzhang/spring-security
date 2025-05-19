@@ -26,6 +26,9 @@ import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.util.Assert;
 
 /**
+ * 将 {@link Jwt} 转换为 {@link JwtAuthenticationToken}，从 {@link Jwt} 对象的 Claims 中提取 authorities，
+ * 并将 {@link Jwt} 的 Subject 作为 {@link JwtAuthenticationToken} 的 name
+ *
  * @author Rob Winch
  * @author Josh Cummings
  * @author Evgeniy Cheban
@@ -40,8 +43,9 @@ public class JwtAuthenticationConverter implements Converter<Jwt, AbstractAuthen
 
 	@Override
 	public final AbstractAuthenticationToken convert(Jwt jwt) {
+		// 从 JWT 的 Claim 中解析 authorities
 		Collection<GrantedAuthority> authorities = this.jwtGrantedAuthoritiesConverter.convert(jwt);
-
+		// 将 JWT 的 Subject 作为 JwtAuthenticationToken 的 name
 		String principalClaimValue = jwt.getClaimAsString(this.principalClaimName);
 		return new JwtAuthenticationToken(jwt, authorities, principalClaimValue);
 	}

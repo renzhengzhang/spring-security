@@ -28,6 +28,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
  * An implementation of an {@link AbstractOAuth2TokenAuthenticationToken} representing a
  * {@link Jwt} {@code Authentication}.
  *
+ * <p>
+ * Token 类型为 JWT 的 {@link AbstractOAuth2TokenAuthenticationToken} 实现
+ *
  * @author Joe Grandja
  * @since 5.1
  * @see AbstractOAuth2TokenAuthenticationToken

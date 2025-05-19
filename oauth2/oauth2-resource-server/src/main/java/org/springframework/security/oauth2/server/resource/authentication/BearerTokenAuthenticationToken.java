@@ -32,6 +32,9 @@ import org.springframework.util.Assert;
  * Used by {@link BearerTokenAuthenticationFilter} to prepare an authentication attempt
  * and supported by {@link JwtAuthenticationProvider}.
  *
+ * <p>
+ * {@link AbstractAuthenticationToken} 扩展实现，包含一个 String 类型 token 字段，同时作为 principal 和 credentials
+ *
  * @author Josh Cummings
  * @since 5.1
  */

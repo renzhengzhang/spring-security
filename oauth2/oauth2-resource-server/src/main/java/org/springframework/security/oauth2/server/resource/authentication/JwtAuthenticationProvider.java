@@ -54,6 +54,12 @@ import org.springframework.util.Assert;
  * {@link Collection} of {@link String}s and prepend the "SCOPE_" keyword, adding as
  * {@link GrantedAuthority}s.
  *
+ *
+ * <p>
+ * 支持对 {@link BearerTokenAuthenticationToken} 进行身份验证。
+ * 将 {@link BearerTokenAuthenticationToken} 中 String 类型的 token 转换为 {@link Jwt} 对象。
+ * 基于 {@link Jwt} 对象提取 authorities，并转换成 {@link JwtAuthenticationToken}
+ *
  * @author Josh Cummings
  * @author Joe Grandja
  * @author Jerome Wacongne ch4mp&#64;c4-soft.com
@@ -84,16 +90,25 @@ public final class JwtAuthenticationProvider implements AuthenticationProvider {
 	 */
 	@Override
 	public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+		// 将字符串类型的 BearerToken 验证，并解析为 Jwt 对象
 		BearerTokenAuthenticationToken bearer = (BearerTokenAuthenticationToken) authentication;
 		Jwt jwt = getJwt(bearer);
+
+		// 基于 Jwt 对象提取 authorities，并转换成 JwtAuthenticationToken
 		AbstractAuthenticationToken token = this.jwtAuthenticationConverter.convert(jwt);
+
+		// 复制 BearerTokenAuthenticationToken 的 details 到 JwtAuthenticationToken
 		if (token.getDetails() == null) {
 			token.setDetails(bearer.getDetails());
 		}
+
 		this.logger.debug("Authenticated token");
 		return token;
 	}
 
+	/**
+	 * 将字符串类型的 BearerToken 验证，并解析为 Jwt 对象
+	 */
 	private Jwt getJwt(BearerTokenAuthenticationToken bearer) {
 		try {
 			return this.jwtDecoder.decode(bearer.getToken());
@@ -107,6 +122,9 @@ public final class JwtAuthenticationProvider implements AuthenticationProvider {
 		}
 	}
 
+	/**
+	 * 只支持 BearerTokenAuthenticationToken
+	 */
 	@Override
 	public boolean supports(Class<?> authentication) {
 		return BearerTokenAuthenticationToken.class.isAssignableFrom(authentication);

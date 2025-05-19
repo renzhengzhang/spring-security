@@ -38,6 +38,11 @@ import org.springframework.util.Assert;
  * could expose the attributes of the Introspection Response via
  * {@link #getTokenAttributes()}.
  *
+ * <p>
+ * {@link AbstractAuthenticationToken} 扩展实现，除了 principal、credentials、authorities，还有类型为 {@link OAuth2Token} 的 token 字段。
+ * <p>
+ * 另外提供 {@link #getTokenAttributes()} 方法，用于获取 Token 的属性，例如 JWT 的 Claim。
+ *
  * @author Joe Grandja
  * @since 5.1
  * @see OAuth2AccessToken
