@@ -22,6 +22,9 @@ import java.util.Date;
  * The abstraction used by {@link PersistentTokenBasedRememberMeServices} to store the
  * persistent login tokens for a user.
  *
+ * <p>
+ * 用于{@link PersistentTokenBasedRememberMeServices} 存储用户持久化 RememberMe 登录令牌。
+ *
  * @author Luke Taylor
  * @since 2.0
  * @see JdbcTokenRepositoryImpl

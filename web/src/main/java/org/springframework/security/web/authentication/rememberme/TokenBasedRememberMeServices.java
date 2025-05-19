@@ -29,6 +29,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.codec.Hex;
 import org.springframework.security.crypto.codec.Utf8;
+import org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
@@ -89,6 +90,11 @@ import org.springframework.util.StringUtils;
  * value will be used for the <tt>maxAge</tt> property of the cookie, meaning that it will
  * not be stored when the browser is closed.
  *
+ * <p>
+ * 此类通过在 {@link AbstractAuthenticationProcessingFilter} 等过滤器身份认证成功时，
+ * 基于用户名、密码、过期时间、key 使用 MD5 或者 SHA256 计算签名，并将用户名、过期时间、签名算法、签名拼接放入 Cookie。
+ * 执行 RememberMe 自动登录时，通过毕竟计算得实际签名和 Cookie 中的签名是否一致来返回 UserDetails。
+ *
  * @author Ben Alex
  * @author Marcus Da Coregio
  */
@@ -124,17 +130,22 @@ public class TokenBasedRememberMeServices extends AbstractRememberMeServices {
 	@Override
 	protected UserDetails processAutoLoginCookie(String[] cookieTokens, HttpServletRequest request,
 			HttpServletResponse response) {
+		// 1. 校验 Cookie 中 Token 的数量，只能是 3 或者 4 （用户名、过期时间、签名算法、签名，签名算法可以忽略）
 		if (!isValidCookieTokensLength(cookieTokens)) {
 			throw new InvalidCookieException(
 					"Cookie token did not contain 3 or 4 tokens, but contained '" + Arrays.asList(cookieTokens) + "'");
 		}
+
+		// 2. 校验 Token 过期时间
 		long tokenExpiryTime = getTokenExpiryTime(cookieTokens);
 		if (isTokenExpired(tokenExpiryTime)) {
 			throw new InvalidCookieException("Cookie token[1] has expired (expired on '" + new Date(tokenExpiryTime)
 					+ "'; current time is '" + new Date() + "')");
 		}
+
 		// Check the user exists. Defer lookup until after expiry time checked, to
 		// possibly avoid expensive database call.
+		// 直接调用 UserDetailsService 获取用户
 		UserDetails userDetails = getUserDetailsService().loadUserByUsername(cookieTokens[0]);
 		Assert.notNull(userDetails, () -> "UserDetailsService " + getUserDetailsService()
 				+ " returned null for username " + cookieTokens[0] + ". " + "This is an interface contract violation");
@@ -152,8 +163,12 @@ public class TokenBasedRememberMeServices extends AbstractRememberMeServices {
 			actualTokenSignature = cookieTokens[3];
 			actualAlgorithm = RememberMeTokenAlgorithm.valueOf(cookieTokens[2]);
 		}
+
+		// 计算实际签名
 		String expectedTokenSignature = makeTokenSignature(tokenExpiryTime, userDetails.getUsername(),
 				userDetails.getPassword(), actualAlgorithm);
+
+		// 校验签名是否一致，签名一致才能返回 UserDetails
 		if (!equals(expectedTokenSignature, actualTokenSignature)) {
 			throw new InvalidCookieException("Cookie contained signature '" + actualTokenSignature + "' but expected '"
 					+ expectedTokenSignature + "'");
@@ -178,6 +193,8 @@ public class TokenBasedRememberMeServices extends AbstractRememberMeServices {
 	/**
 	 * Calculates the digital signature to be put in the cookie. Default value is
 	 * {@link #encodingAlgorithm} applied to ("username:tokenExpiryTime:password:key")
+	 * <p>
+	 * 基于用户名、Token 过期时间、密码、key 使用 MD5 或者 SHA256 计算签名
 	 */
 	protected String makeTokenSignature(long tokenExpiryTime, String username, String password) {
 		String data = username + ":" + tokenExpiryTime + ":" + password + ":" + getKey();
@@ -192,6 +209,8 @@ public class TokenBasedRememberMeServices extends AbstractRememberMeServices {
 
 	/**
 	 * Calculates the digital signature to be put in the cookie.
+	 * <p>
+	 * 基于用户名、Token 过期时间、密码、key 使用 MD5 或者 SHA256 计算签名
 	 * @since 5.8
 	 */
 	protected String makeTokenSignature(long tokenExpiryTime, String username, String password,
@@ -210,9 +229,16 @@ public class TokenBasedRememberMeServices extends AbstractRememberMeServices {
 		return tokenExpiryTime < System.currentTimeMillis();
 	}
 
+	/**
+	 * <p>
+	 * 只有需要 RememberMe 时，才会执行此方法
+	 * <p>
+	 * 身份认证成功时调用此方法，基于用户名、密码、key、过期时间计算 Token 签名
+	 */
 	@Override
 	public void onLoginSuccess(HttpServletRequest request, HttpServletResponse response,
 			Authentication successfulAuthentication) {
+		// 从 Authentication 中获取用户名密码。若最终没有获取到用户名密码，不进行操作
 		String username = retrieveUserName(successfulAuthentication);
 		String password = retrievePassword(successfulAuthentication);
 		// If unable to find a username and password, just abort as
@@ -222,6 +248,9 @@ public class TokenBasedRememberMeServices extends AbstractRememberMeServices {
 			this.logger.debug("Unable to retrieve username");
 			return;
 		}
+
+		// 从已认证的 Authentication 中获取密码（很可能没有，默认 ProviderManager 在身份认证成功之后清理 Authentication 中的 Credentials）
+		// 没有则通过 UserDetailsService 中获取
 		if (!StringUtils.hasLength(password)) {
 			UserDetails user = getUserDetailsService().loadUserByUsername(username);
 			password = user.getPassword();
@@ -230,11 +259,17 @@ public class TokenBasedRememberMeServices extends AbstractRememberMeServices {
 				return;
 			}
 		}
+
+		// 计算 Token Cookie 的过期时间。Cookie 过期时间默认俩周，过期时间在父类 AbstractRememberMeServices 中设置
 		int tokenLifetime = calculateLoginLifetime(request, successfulAuthentication);
 		long expiryTime = System.currentTimeMillis();
 		// SEC-949
 		expiryTime += 1000L * ((tokenLifetime < 0) ? TWO_WEEKS_S : tokenLifetime);
+
+		// 基于用户名、Token 过期时间、密码、key 使用 MD5 或者 SHA256 计算 Token 签名
 		String signatureValue = makeTokenSignature(expiryTime, username, password, this.encodingAlgorithm);
+
+		// 将各个用户名、签名等数据先进行 UrlEncode，然后使用':'拼接形成，然后进行 Base64 编码，放入 Cookie
 		setCookie(new String[] { username, Long.toString(expiryTime), this.encodingAlgorithm.name(), signatureValue },
 				tokenLifetime, request, response);
 		if (this.logger.isDebugEnabled()) {
