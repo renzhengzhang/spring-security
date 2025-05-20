@@ -66,18 +66,24 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
 
+	// 从 HttpServletRequest 中解析能够支持身份验证的 AuthenticationManager
 	private final AuthenticationManagerResolver<HttpServletRequest> authenticationManagerResolver;
 
 	private SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
 		.getContextHolderStrategy();
 
+	// 用于处理认证异常情况，默认交由 BearerTokenAuthenticationEntryPoint 处理
+	// 在响应头中添加 WWW-Authenticate 响应头，并设置响应状态码为 401
 	private AuthenticationEntryPoint authenticationEntryPoint = new BearerTokenAuthenticationEntryPoint();
 
+	// 身份认证失败之后，依据是否需要抛出异常，来判断是否交由 AuthenticationEntryPoint 处理
 	private AuthenticationFailureHandler authenticationFailureHandler = new AuthenticationEntryPointFailureHandler(
 			(request, response, exception) -> this.authenticationEntryPoint.commence(request, response, exception));
 
+	// 从请求 Header 或者 Parameters 中解析 Bearer Token
 	private BearerTokenResolver bearerTokenResolver = new DefaultBearerTokenResolver();
 
+	// 从 HttpServletRequest 中提取信息构建 WebAuthenticationDetails（包含 remoteAddress 和 sessionId）
 	private AuthenticationDetailsSource<HttpServletRequest, ?> authenticationDetailsSource = new WebAuthenticationDetailsSource();
 
 	private SecurityContextRepository securityContextRepository = new RequestAttributeSecurityContextRepository();
@@ -94,6 +100,9 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
 
 	/**
 	 * Construct a {@code BearerTokenAuthenticationFilter} using the provided parameter(s)
+	 * <p>
+	 * 利用构造方法传入固定的 AuthenticationManager
+	 *
 	 * @param authenticationManager
 	 */
 	public BearerTokenAuthenticationFilter(AuthenticationManager authenticationManager) {
@@ -114,6 +123,7 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
 			throws ServletException, IOException {
+		// 1. 从请求 Header 或者 Parameters 中解析 Bearer Token
 		String token;
 		try {
 			token = this.bearerTokenResolver.resolve(request);
@@ -123,18 +133,24 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
 			this.authenticationEntryPoint.commence(request, response, invalid);
 			return;
 		}
+
+		// 2. 如果请求中没有 Bearer Token，不做处理
 		if (token == null) {
 			this.logger.trace("Did not process request since did not find bearer token");
 			filterChain.doFilter(request, response);
 			return;
 		}
 
+		// 3. 基于 Bearer Token 创建一个 BearerTokenAuthenticationToken
 		BearerTokenAuthenticationToken authenticationRequest = new BearerTokenAuthenticationToken(token);
 		authenticationRequest.setDetails(this.authenticationDetailsSource.buildDetails(request));
 
 		try {
+			// 4. 获取对应的 AuthenticationManager，并用其验证 BearerTokenAuthenticationToken
 			AuthenticationManager authenticationManager = this.authenticationManagerResolver.resolve(request);
 			Authentication authenticationResult = authenticationManager.authenticate(authenticationRequest);
+
+			// 5. 未发生异常说明验证成功，设置 SecurityContext
 			SecurityContext context = this.securityContextHolderStrategy.createEmptyContext();
 			context.setAuthentication(authenticationResult);
 			this.securityContextHolderStrategy.setContext(context);
@@ -147,6 +163,8 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
 		catch (AuthenticationException failed) {
 			this.securityContextHolderStrategy.clearContext();
 			this.logger.trace("Failed to process authentication request", failed);
+
+			// 6. 验证失败，交由 AuthenticationFailureHandler 处理，默认交由 BearerTokenAuthenticationEntryPoint 处理
 			this.authenticationFailureHandler.onAuthenticationFailure(request, response, failed);
 		}
 	}
