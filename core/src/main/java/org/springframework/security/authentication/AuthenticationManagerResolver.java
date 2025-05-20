@@ -20,6 +20,9 @@ package org.springframework.security.authentication;
  * An interface for resolving an {@link AuthenticationManager} based on the provided
  * context
  *
+ * <p>
+ * 从上下文中解析获取能够进行身份验证的 {@link AuthenticationManager}
+ *
  * @author Josh Cummings
  * @since 5.2
  */

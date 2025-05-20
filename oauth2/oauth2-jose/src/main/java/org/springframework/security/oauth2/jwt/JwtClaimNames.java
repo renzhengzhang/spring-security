@@ -20,6 +20,9 @@ package org.springframework.security.oauth2.jwt;
  * The Registered Claim Names defined by the JSON Web Token (JWT) specification that may
  * be contained in the JSON object JWT Claims Set.
  *
+ * <p>
+ * JWT Claim 名称常量
+ *
  * @author Joe Grandja
  * @since 5.0
  * @see JwtClaimAccessor

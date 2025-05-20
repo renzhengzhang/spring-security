@@ -23,6 +23,9 @@ import org.springframework.lang.Nullable;
 /**
  * Core interface representing an OAuth 2.0 Token.
  *
+ * <p>
+ * 包括 Token 值、签发时间、过期时间
+ *
  * @author Joe Grandja
  * @since 5.5
  * @see AbstractOAuth2Token

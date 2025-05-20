@@ -25,6 +25,9 @@ import org.springframework.security.oauth2.core.ClaimAccessor;
  * A {@link ConversionService} configured with converters that provide type conversion for
  * claim values.
  *
+ * <p>
+ * Claim 类型转换服务，支持将 Claim 值转换成指定类型，包括 String, Boolean, Instant, URL, List<String>, Map<String, Object>
+ *
  * @author Joe Grandja
  * @since 5.2
  * @see GenericConversionService

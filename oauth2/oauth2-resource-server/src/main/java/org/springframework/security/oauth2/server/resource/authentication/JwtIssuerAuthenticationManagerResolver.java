@@ -35,6 +35,7 @@ import org.springframework.security.authentication.AuthenticationManagerResolver
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtDecoders;
 import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
@@ -55,6 +56,10 @@ import org.springframework.util.Assert;
  * {@link HttpServletRequest}'s
  * <a href="https://tools.ietf.org/html/rfc6750#section-1.2" target="_blank">Bearer
  * Token</a>.
+ *
+ * <p>
+ * 基于受信任 issuer 来确定对应的 {@link JwtDecoder}，用来被 {@link JwtAuthenticationProvider} 调用以解析、验证 {@link Jwt}。
+ * 受信任的 issuer 需要通过 {@link JwtIssuerAuthenticationManagerResolver} 的构造方法传入。
  *
  * @author Josh Cummings
  * @since 5.3
@@ -158,6 +163,9 @@ public final class JwtIssuerAuthenticationManagerResolver implements Authenticat
 		return this.authenticationManager;
 	}
 
+	/**
+	 * 基于 issuer 动态生成 JwtAuthenticationProvider 对 BearerTokenAuthenticationToken 进行验证
+	 */
 	private static class ResolvingAuthenticationManager implements AuthenticationManager {
 
 		private final Converter<BearerTokenAuthenticationToken, String> issuerConverter = new JwtClaimIssuerConverter();
@@ -172,8 +180,10 @@ public final class JwtIssuerAuthenticationManagerResolver implements Authenticat
 		public Authentication authenticate(Authentication authentication) throws AuthenticationException {
 			Assert.isTrue(authentication instanceof BearerTokenAuthenticationToken,
 					"Authentication must be of type BearerTokenAuthenticationToken");
+			// 从 token 中解析 issuer
 			BearerTokenAuthenticationToken token = (BearerTokenAuthenticationToken) authentication;
 			String issuer = this.issuerConverter.convert(token);
+			// 获取受信任的 issuer 对应的 JwtDecoder，在 JwtAuthenticationProvider 中进行认证
 			AuthenticationManager authenticationManager = this.issuerAuthenticationManagerResolver.resolve(issuer);
 			if (authenticationManager == null) {
 				throw new InvalidBearerTokenException("Invalid issuer");
@@ -183,12 +193,16 @@ public final class JwtIssuerAuthenticationManagerResolver implements Authenticat
 
 	}
 
+	/**
+	 * 解析 BearerTokenAuthenticationToken 中 jwt Token 的 Issuer
+	 */
 	private static class JwtClaimIssuerConverter implements Converter<BearerTokenAuthenticationToken, String> {
 
 		@Override
 		public String convert(@NonNull BearerTokenAuthenticationToken authentication) {
 			String token = authentication.getToken();
 			try {
+				// 使用 JWTParser 解析 token 并提取 issuer
 				String issuer = JWTParser.parse(token).getJWTClaimsSet().getIssuer();
 				if (issuer != null) {
 					return issuer;
@@ -202,12 +216,19 @@ public final class JwtIssuerAuthenticationManagerResolver implements Authenticat
 
 	}
 
+	/**
+	 * 如果传入的 Issuer 是受信任的 Issuer，则使用 Issuer 生成一个 {@link JwtDecoder}，
+	 * 并基于这个 {@link JwtDecoder} 构建 {@link JwtAuthenticationProvider}
+	 * 返回使用 {@link JwtAuthenticationProvider} 实现的 {@link AuthenticationManager}
+	 */
 	static class TrustedIssuerJwtAuthenticationManagerResolver implements AuthenticationManagerResolver<String> {
 
 		private final Log logger = LogFactory.getLog(getClass());
 
+		// Issuer -> AuthenticationManager 缓存
 		private final Map<String, AuthenticationManager> authenticationManagers = new ConcurrentHashMap<>();
 
+		// 判断 Issuer 是否是受信任的 Issuer
 		private final Predicate<String> trustedIssuer;
 
 		TrustedIssuerJwtAuthenticationManagerResolver(Predicate<String> trustedIssuer) {

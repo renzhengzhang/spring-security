@@ -36,6 +36,10 @@ import org.springframework.util.Assert;
  * also known as the JWT Claims Set, consists of one or more claim name/value pairs. The
  * claim name is a {@code String} and the claim value is an arbitrary JSON object.
  *
+ * <p>
+ * 一个实现了 {@link AbstractOAuth2Token} 的 JSON Web Token (JWT) ，包含 Token 值、签发时间、过期时间以及一个 headers map 和一个 claims map
+ *
+ *
  * @author Joe Grandja
  * @since 5.0
  * @see AbstractOAuth2Token

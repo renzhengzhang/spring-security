@@ -26,6 +26,9 @@ import org.springframework.util.Assert;
 /**
  * Base class for OAuth 2.0 Token implementations.
  *
+ * <p>
+ * OAuth 2.0 Token 的抽象实现，包括 Token 值、签发时间、过期时间
+ *
  * @author Joe Grandja
  * @since 5.0
  * @see OAuth2Token

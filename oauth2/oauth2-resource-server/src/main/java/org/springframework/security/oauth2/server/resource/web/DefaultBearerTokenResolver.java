@@ -32,6 +32,9 @@ import org.springframework.util.StringUtils;
 /**
  * The default {@link BearerTokenResolver} implementation based on RFC 6750.
  *
+ * <p>
+ * 从请求 Header 或者 Parameters 中解析 Bearer Token
+ *
  * @author Vedran Pavic
  * @since 5.1
  * @see <a href="https://tools.ietf.org/html/rfc6750#section-2" target="_blank">RFC 6750
@@ -52,9 +55,13 @@ public final class DefaultBearerTokenResolver implements BearerTokenResolver {
 
 	@Override
 	public String resolve(final HttpServletRequest request) {
+		// 从请求头中获取 Bearer Token
 		final String authorizationHeaderToken = resolveFromAuthorizationHeader(request);
+		// 从请求参数中获取 Bearer Token
 		final String parameterToken = isParameterTokenSupportedForRequest(request)
 				? resolveFromRequestParameters(request) : null;
+
+		// 优先使用从请求头中获取获取的 Token
 		if (authorizationHeaderToken != null) {
 			if (parameterToken != null) {
 				final BearerTokenError error = BearerTokenErrors
@@ -63,6 +70,9 @@ public final class DefaultBearerTokenResolver implements BearerTokenResolver {
 			}
 			return authorizationHeaderToken;
 		}
+
+		// 没有合法的 Authorization Header
+		// 如果从请求参数中存在 access_token，并且允许使用，则使用从请求参数中获取的 Token
 		if (parameterToken != null && isParameterTokenEnabledForRequest(request)) {
 			return parameterToken;
 		}
@@ -104,11 +114,19 @@ public final class DefaultBearerTokenResolver implements BearerTokenResolver {
 		this.bearerTokenHeaderName = bearerTokenHeaderName;
 	}
 
+	/**
+	 * 使用正则表达式匹配 Request Header 中的 Bearer Token（header 名称为 Authorization）
+	 */
 	private String resolveFromAuthorizationHeader(HttpServletRequest request) {
+		// 获取请求头中的 Authorization
 		String authorization = request.getHeader(this.bearerTokenHeaderName);
+
+		// 非 bearer 开头的 Header 内容忽略
 		if (!StringUtils.startsWithIgnoreCase(authorization, "bearer")) {
 			return null;
 		}
+
+		// 使用正则表达式捕获组获取其中的 Token
 		Matcher matcher = authorizationPattern.matcher(authorization);
 		if (!matcher.matches()) {
 			BearerTokenError error = BearerTokenErrors.invalidToken("Bearer token is malformed");
@@ -117,6 +135,9 @@ public final class DefaultBearerTokenResolver implements BearerTokenResolver {
 		return matcher.group("token");
 	}
 
+	/**
+	 * 从 Request Parameters 中获取 Bearer Token（参数名为 access_token）
+	 */
 	private static String resolveFromRequestParameters(HttpServletRequest request) {
 		String[] values = request.getParameterValues(ACCESS_TOKEN_PARAMETER_NAME);
 		if (values == null || values.length == 0) {
@@ -129,23 +150,41 @@ public final class DefaultBearerTokenResolver implements BearerTokenResolver {
 		throw new OAuth2AuthenticationException(error);
 	}
 
+	/**
+     * 判断是否支持使用 access_token 参数
+     */
 	private boolean isParameterTokenSupportedForRequest(final HttpServletRequest request) {
 		return isFormEncodedRequest(request) || isGetRequest(request);
 	}
 
+	/**
+	 * 判断是否为 GET 请求
+	 */
 	private static boolean isGetRequest(HttpServletRequest request) {
 		return HttpMethod.GET.name().equals(request.getMethod());
 	}
 
+	/**
+     * 判断是否为 POST 表单请求
+	 */
 	private static boolean isFormEncodedRequest(HttpServletRequest request) {
 		return MediaType.APPLICATION_FORM_URLENCODED_VALUE.equals(request.getContentType());
 	}
 
+	/**
+     * 判断是否包含 access_token 参数
+     */
 	private static boolean hasAccessTokenInQueryString(HttpServletRequest request) {
 		return (request.getQueryString() != null) && request.getQueryString().contains(ACCESS_TOKEN_PARAMETER_NAME);
 	}
 
+	/**
+	 * 判断是否允许使用 access_token 参数
+	 */
 	private boolean isParameterTokenEnabledForRequest(HttpServletRequest request) {
+		// 以下这两种情况允许使用 access_token 参数
+		// 1. allowFormEncodedBodyParameter 为 true、表单请求、非 GET 请求；
+		// 2. allowUriQueryParameter 为 true、GET 请求
 		return ((this.allowFormEncodedBodyParameter && isFormEncodedRequest(request) && !isGetRequest(request)
 				&& !hasAccessTokenInQueryString(request)) || (this.allowUriQueryParameter && isGetRequest(request)));
 	}

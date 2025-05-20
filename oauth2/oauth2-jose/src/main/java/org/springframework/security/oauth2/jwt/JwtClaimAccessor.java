@@ -26,6 +26,9 @@ import org.springframework.security.oauth2.core.ClaimAccessor;
  * A {@link ClaimAccessor} for the &quot;claims&quot; that may be contained in the JSON
  * object JWT Claims Set of a JSON Web Token (JWT).
  *
+ * <p>
+ * {@link ClaimAccessor} 针对 JWT 的扩展实现。基于 {@link ClaimAccessor} 获取指定名称并转换 Claim 值类型的能力，获取 JWT Claim 的值
+ *
  * @author Joe Grandja
  * @since 5.0
  * @see ClaimAccessor

@@ -39,6 +39,9 @@ import org.springframework.util.StringUtils;
  * Uses information provided by {@link BearerTokenError} to set HTTP response status code
  * and populate {@code WWW-Authenticate} HTTP header.
  *
+ * <p>
+ * 身份认证失败之后，在响应头中添加 WWW-Authenticate 响应头，并设置响应状态码为 401
+ *
  * @author Vedran Pavic
  * @since 5.1
  * @see BearerTokenError
@@ -60,11 +63,15 @@ public final class BearerTokenAuthenticationEntryPoint implements Authentication
 	@Override
 	public void commence(HttpServletRequest request, HttpServletResponse response,
 			AuthenticationException authException) {
+		// 返回 HTTP 401 Unauthorized
 		HttpStatus status = HttpStatus.UNAUTHORIZED;
 		Map<String, String> parameters = new LinkedHashMap<>();
 		if (this.realmName != null) {
 			parameters.put("realm", this.realmName);
 		}
+
+		// 如果 authException 是 OAuth2AuthenticationException
+		// 则需要在响应头中添加 error, error_description, error_uri, scope 等字段
 		if (authException instanceof OAuth2AuthenticationException) {
 			OAuth2Error error = ((OAuth2AuthenticationException) authException).getError();
 			parameters.put("error", error.getErrorCode());
@@ -94,6 +101,8 @@ public final class BearerTokenAuthenticationEntryPoint implements Authentication
 		this.realmName = realmName;
 	}
 
+	// 组装 Authenticate 响应头，格式如下：
+	// Bearer realm="realmName", error="invalid_token", error_description="Full details of the error"
 	private static String computeWWWAuthenticateHeaderValue(Map<String, String> parameters) {
 		StringBuilder wwwAuthenticate = new StringBuilder();
 		wwwAuthenticate.append("Bearer");

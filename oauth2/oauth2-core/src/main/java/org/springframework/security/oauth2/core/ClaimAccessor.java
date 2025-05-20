@@ -28,6 +28,9 @@ import org.springframework.util.Assert;
 /**
  * An &quot;accessor&quot; for a set of claims that may be used for assertions.
  *
+ * <p>
+ * ClaimAccessor 用于判断是否包含某个 Claim、获取全部 Claim，另外为 Claim 值提供类型转换服务。
+ *
  * @author Joe Grandja
  * @since 5.0
  */

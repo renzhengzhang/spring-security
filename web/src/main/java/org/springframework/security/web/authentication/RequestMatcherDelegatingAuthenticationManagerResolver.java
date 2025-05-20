@@ -36,6 +36,8 @@ import org.springframework.util.Assert;
  * An {@link AuthenticationManagerResolver} that returns a {@link AuthenticationManager}
  * instances based upon the type of {@link HttpServletRequest} passed into
  * {@link #resolve(HttpServletRequest)}.
+ * <p>
+ * 基于 {@link RequestMatcher} 返回一个 {@link AuthenticationManager}
  *
  * @author Josh Cummings
  * @since 5.7
@@ -45,6 +47,7 @@ public final class RequestMatcherDelegatingAuthenticationManagerResolver
 
 	private final List<RequestMatcherEntry<AuthenticationManager>> authenticationManagers;
 
+	// 默认的 AuthenticationManager 是抛出 AuthenticationServiceException
 	private AuthenticationManager defaultAuthenticationManager = (authentication) -> {
 		throw new AuthenticationServiceException("Cannot authenticate " + authentication);
 	};

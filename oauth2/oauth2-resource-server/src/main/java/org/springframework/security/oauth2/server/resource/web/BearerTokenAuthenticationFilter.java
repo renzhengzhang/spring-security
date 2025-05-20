@@ -14,21 +14,79 @@
  * limitations under the License.
  */
 
-package org.springframework.security.oauth2.server.resource.web;
+package org.springframework.security.oauth2.server.resource.web.authentication;
 
+import java.io.IOException;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.core.log.LogMessage;
+import org.springframework.security.authentication.AuthenticationDetailsSource;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationManagerResolver;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextHolderStrategy;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthenticationToken;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.authentication.AuthenticationEntryPointFailureHandler;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.util.Assert;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * @deprecated Use
- * {@link org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter}
- * instead
+ * Authenticates requests that contain an OAuth 2.0
+ * <a href="https://tools.ietf.org/html/rfc6750#section-1.2" target="_blank">Bearer
+ * Token</a>.
+ *
+ * This filter should be wired with an {@link AuthenticationManager} that can authenticate
+ * a {@link BearerTokenAuthenticationToken}.
+ *
+ * @author Josh Cummings
+ * @author Vedran Pavic
+ * @author Joe Grandja
+ * @author Jeongjin Kim
+ * @since 5.1
+ * @see <a href="https://tools.ietf.org/html/rfc6750" target="_blank">The OAuth 2.0
+ * Authorization Framework: Bearer Token Usage</a>
+ * @see JwtAuthenticationProvider
  */
-@Deprecated
-public final class BearerTokenAuthenticationFilter
-		extends org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter {
+public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
+
+	// 从 HttpServletRequest 中解析能够支持身份验证的 AuthenticationManager
+	private final AuthenticationManagerResolver<HttpServletRequest> authenticationManagerResolver;
+
+	private SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
+		.getContextHolderStrategy();
+
+	// 用于处理认证异常情况，默认交由 BearerTokenAuthenticationEntryPoint 处理
+	// 在响应头中添加 WWW-Authenticate 响应头，并设置响应状态码为 401
+	private AuthenticationEntryPoint authenticationEntryPoint = new BearerTokenAuthenticationEntryPoint();
+
+	// 身份认证失败之后，依据是否需要抛出异常，来判断是否交由 AuthenticationEntryPoint 处理
+	private AuthenticationFailureHandler authenticationFailureHandler = new AuthenticationEntryPointFailureHandler(
+			(request, response, exception) -> this.authenticationEntryPoint.commence(request, response, exception));
+
+	// 从请求 Header 或者 Parameters 中解析 Bearer Token
+	private BearerTokenResolver bearerTokenResolver = new DefaultBearerTokenResolver();
+
+	// 从 HttpServletRequest 中提取信息构建 WebAuthenticationDetails（包含 remoteAddress 和 sessionId）
+	private AuthenticationDetailsSource<HttpServletRequest, ?> authenticationDetailsSource = new WebAuthenticationDetailsSource();
+
+	private SecurityContextRepository securityContextRepository = new RequestAttributeSecurityContextRepository();
 
 	/**
 	 * Construct a {@code BearerTokenAuthenticationFilter} using the provided parameter(s)
@@ -36,15 +94,145 @@ public final class BearerTokenAuthenticationFilter
 	 */
 	public BearerTokenAuthenticationFilter(
 			AuthenticationManagerResolver<HttpServletRequest> authenticationManagerResolver) {
-		super(authenticationManagerResolver);
+		Assert.notNull(authenticationManagerResolver, "authenticationManagerResolver cannot be null");
+		this.authenticationManagerResolver = authenticationManagerResolver;
 	}
 
 	/**
 	 * Construct a {@code BearerTokenAuthenticationFilter} using the provided parameter(s)
+	 * <p>
+	 * 利用构造方法传入固定的 AuthenticationManager
+	 *
 	 * @param authenticationManager
 	 */
 	public BearerTokenAuthenticationFilter(AuthenticationManager authenticationManager) {
-		super(authenticationManager);
+		Assert.notNull(authenticationManager, "authenticationManager cannot be null");
+		this.authenticationManagerResolver = (request) -> authenticationManager;
+	}
+
+	/**
+	 * Extract any
+	 * <a href="https://tools.ietf.org/html/rfc6750#section-1.2" target="_blank">Bearer
+	 * Token</a> from the request and attempt an authentication.
+	 * @param request
+	 * @param response
+	 * @param filterChain
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	@Override
+	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+			throws ServletException, IOException {
+		// 1. 从请求 Header 或者 Parameters 中解析 Bearer Token
+		String token;
+		try {
+			token = this.bearerTokenResolver.resolve(request);
+		}
+		catch (OAuth2AuthenticationException invalid) {
+			this.logger.trace("Sending to authentication entry point since failed to resolve bearer token", invalid);
+			this.authenticationEntryPoint.commence(request, response, invalid);
+			return;
+		}
+
+		// 2. 如果请求中没有 Bearer Token，不做处理
+		if (token == null) {
+			this.logger.trace("Did not process request since did not find bearer token");
+			filterChain.doFilter(request, response);
+			return;
+		}
+
+		// 3. 基于 Bearer Token 创建一个 BearerTokenAuthenticationToken
+		BearerTokenAuthenticationToken authenticationRequest = new BearerTokenAuthenticationToken(token);
+		authenticationRequest.setDetails(this.authenticationDetailsSource.buildDetails(request));
+
+		try {
+			// 4. 获取对应的 AuthenticationManager，并用其验证 BearerTokenAuthenticationToken
+			AuthenticationManager authenticationManager = this.authenticationManagerResolver.resolve(request);
+			Authentication authenticationResult = authenticationManager.authenticate(authenticationRequest);
+
+			// 5. 未发生异常说明验证成功，设置 SecurityContext
+			SecurityContext context = this.securityContextHolderStrategy.createEmptyContext();
+			context.setAuthentication(authenticationResult);
+			this.securityContextHolderStrategy.setContext(context);
+			this.securityContextRepository.saveContext(context, request, response);
+			if (this.logger.isDebugEnabled()) {
+				this.logger.debug(LogMessage.format("Set SecurityContextHolder to %s", authenticationResult));
+			}
+			filterChain.doFilter(request, response);
+		}
+		catch (AuthenticationException failed) {
+			this.securityContextHolderStrategy.clearContext();
+			this.logger.trace("Failed to process authentication request", failed);
+
+			// 6. 验证失败，交由 AuthenticationFailureHandler 处理，默认交由 BearerTokenAuthenticationEntryPoint 处理
+			this.authenticationFailureHandler.onAuthenticationFailure(request, response, failed);
+		}
+	}
+
+	/**
+	 * Sets the {@link SecurityContextHolderStrategy} to use. The default action is to use
+	 * the {@link SecurityContextHolderStrategy} stored in {@link SecurityContextHolder}.
+	 *
+	 * @since 5.8
+	 */
+	public void setSecurityContextHolderStrategy(SecurityContextHolderStrategy securityContextHolderStrategy) {
+		Assert.notNull(securityContextHolderStrategy, "securityContextHolderStrategy cannot be null");
+		this.securityContextHolderStrategy = securityContextHolderStrategy;
+	}
+
+	/**
+	 * Sets the {@link SecurityContextRepository} to save the {@link SecurityContext} on
+	 * authentication success. The default action is not to save the
+	 * {@link SecurityContext}.
+	 * @param securityContextRepository the {@link SecurityContextRepository} to use.
+	 * Cannot be null.
+	 */
+	public void setSecurityContextRepository(SecurityContextRepository securityContextRepository) {
+		Assert.notNull(securityContextRepository, "securityContextRepository cannot be null");
+		this.securityContextRepository = securityContextRepository;
+	}
+
+	/**
+	 * Set the {@link BearerTokenResolver} to use. Defaults to
+	 * {@link DefaultBearerTokenResolver}.
+	 * @param bearerTokenResolver the {@code BearerTokenResolver} to use
+	 */
+	public void setBearerTokenResolver(BearerTokenResolver bearerTokenResolver) {
+		Assert.notNull(bearerTokenResolver, "bearerTokenResolver cannot be null");
+		this.bearerTokenResolver = bearerTokenResolver;
+	}
+
+	/**
+	 * Set the {@link AuthenticationEntryPoint} to use. Defaults to
+	 * {@link BearerTokenAuthenticationEntryPoint}.
+	 * @param authenticationEntryPoint the {@code AuthenticationEntryPoint} to use
+	 */
+	public void setAuthenticationEntryPoint(final AuthenticationEntryPoint authenticationEntryPoint) {
+		Assert.notNull(authenticationEntryPoint, "authenticationEntryPoint cannot be null");
+		this.authenticationEntryPoint = authenticationEntryPoint;
+	}
+
+	/**
+	 * Set the {@link AuthenticationFailureHandler} to use. Default implementation invokes
+	 * {@link AuthenticationEntryPoint}.
+	 * @param authenticationFailureHandler the {@code AuthenticationFailureHandler} to use
+	 * @since 5.2
+	 */
+	public void setAuthenticationFailureHandler(final AuthenticationFailureHandler authenticationFailureHandler) {
+		Assert.notNull(authenticationFailureHandler, "authenticationFailureHandler cannot be null");
+		this.authenticationFailureHandler = authenticationFailureHandler;
+	}
+
+	/**
+	 * Set the {@link AuthenticationDetailsSource} to use. Defaults to
+	 * {@link WebAuthenticationDetailsSource}.
+	 * @param authenticationDetailsSource the {@code AuthenticationConverter} to use
+	 * @since 5.5
+	 */
+	public void setAuthenticationDetailsSource(
+			AuthenticationDetailsSource<HttpServletRequest, ?> authenticationDetailsSource) {
+		Assert.notNull(authenticationDetailsSource, "authenticationDetailsSource cannot be null");
+		this.authenticationDetailsSource = authenticationDetailsSource;
 	}
 
 }

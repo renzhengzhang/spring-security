@@ -25,6 +25,9 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
  * <a href="https://tools.ietf.org/html/rfc6750#section-1.2" target="_blank">Bearer
  * Token</a>s from the {@link HttpServletRequest}.
  *
+ * <p>
+ * 从 {@link HttpServletRequest} 中解析 Bearer Token
+ *
  * @author Vedran Pavic
  * @since 5.1
  * @see <a href="https://tools.ietf.org/html/rfc6750#section-2" target="_blank">RFC 6750
